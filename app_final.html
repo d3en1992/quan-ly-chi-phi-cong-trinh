@@ -645,10 +645,12 @@ const DEFAULTS = {
 };
 
 const CATS = [
-  { id:'congTrinh', title:'🏗️ Công Trình', sk:'cat_ct', refField:'congtrinh' },
-  { id:'loaiChiPhi', title:'📂 Loại Chi Phí', sk:'cat_loai', refField:'loai' },
-  { id:'nhaCungCap', title:'🏪 Nhà Cung Cấp', sk:'cat_ncc', refField:'ncc' },
-  { id:'nguoiTH', title:'👷 Người Thực Hiện', sk:'cat_nguoi', refField:'nguoi' }
+  { id:'congTrinh',  title:'🏗️ Công Trình',       sk:'cat_ct',    refField:'congtrinh' },
+  { id:'loaiChiPhi', title:'📂 Loại Chi Phí',      sk:'cat_loai',  refField:'loai' },
+  { id:'nhaCungCap', title:'🏪 Nhà Cung Cấp',      sk:'cat_ncc',   refField:'ncc' },
+  { id:'nguoiTH',    title:'👷 Người Thực Hiện',   sk:'cat_nguoi', refField:'nguoi' },
+  { id:'thauPhu',    title:'🤝 Thầu Phụ / TP',     sk:'cat_tp',    refField:'tp' },
+  { id:'congNhan',   title:'🪖 Công Nhân',          sk:'cat_cn',    refField:null }
 ];
 
 // ══════════════════════════════════════════════════════════
@@ -862,9 +864,13 @@ function reloadFromCloud() {
     cats.loaiChiPhi = load('cat_loai',  DEFAULTS.loaiChiPhi);
     cats.nhaCungCap = load('cat_ncc',   DEFAULTS.nhaCungCap);
     cats.nguoiTH    = load('cat_nguoi', DEFAULTS.nguoiTH);
+    cats.thauPhu    = load('cat_tp',    []);
+    cats.congNhan   = load('cat_cn',    []);
+    // Tự động tạo hóa đơn từ toàn bộ chấm công
+    const built = rebuildInvoicesFromCC();
     updateTop(); rebuildEntrySelects(); rebuildCCNameList(); populateCCCtSel();
     initTable(10); initUngTable(8); initCC();
-    toast('✅ Đã đồng bộ dữ liệu!', 'success');
+    toast(`✅ Đồng bộ xong! ${built.weeks} HĐ nhân công, ${built.cts} CT mới, ${built.names} CN mới`, 'success');
   });
 }
 
@@ -885,10 +891,12 @@ function hideSyncBanner() {
 }
 
 let cats = {
-  congTrinh: load('cat_ct', DEFAULTS.congTrinh),
-  loaiChiPhi: load('cat_loai', DEFAULTS.loaiChiPhi),
-  nhaCungCap: load('cat_ncc', DEFAULTS.nhaCungCap),
-  nguoiTH: load('cat_nguoi', DEFAULTS.nguoiTH)
+  congTrinh:  load('cat_ct',    DEFAULTS.congTrinh),
+  loaiChiPhi: load('cat_loai',  DEFAULTS.loaiChiPhi),
+  nhaCungCap: load('cat_ncc',   DEFAULTS.nhaCungCap),
+  nguoiTH:    load('cat_nguoi', DEFAULTS.nguoiTH),
+  thauPhu:    load('cat_tp',    []),
+  congNhan:   load('cat_cn',    [])
 };
 
 let invoices = load('inv_v3', []);
@@ -925,7 +933,10 @@ function init() {
     rebuildCCNameList();
     populateCCCtSel();
     initTable(10); initUngTable(8); initCC();
-    toast('✅ Đã đồng bộ dữ liệu từ Cloud', 'success');
+    const built2 = rebuildInvoicesFromCC();
+    updateTop(); rebuildEntrySelects(); rebuildCCNameList(); populateCCCtSel();
+    initTable(10); initUngTable(8); initCC();
+    toast(`✅ Đồng bộ xong! ${built2.weeks} HĐ nhân công, ${built2.cts} CT mới`, 'success');
   });
 }
 
@@ -1287,7 +1298,8 @@ function saveCats(catId) {
   if(cfg) {
     localStorage.setItem(cfg.sk, JSON.stringify(cats[catId]));
     clearTimeout(save._t);
-    }
+    save._t = setTimeout(jbPushAll, 2000);
+  }
 }
 
 function rebuildEntrySelects() {
@@ -1877,6 +1889,112 @@ function ccUpsertInvoice(ccKey, invData){
 // Helper: remove invoices matching a ccKey prefix
 function ccRemoveInvoicesByKeyPrefix(prefix){
   invoices=invoices.filter(i=>!i.ccKey||!i.ccKey.startsWith(prefix));
+}
+
+// ── Tự động tạo hóa đơn + cập nhật danh mục từ toàn bộ ccData ───────
+// Gọi sau khi import/sync để không cần lưu từng tuần thủ công
+function rebuildInvoicesFromCC() {
+  // Xóa toàn bộ hóa đơn tự động từ CC cũ (có ccKey)
+  invoices = invoices.filter(i => !i.ccKey);
+
+  let totalWeeks = 0, totalHdml = 0;
+
+  // ── Tự động thêm công trình mới vào danh mục ──────────────────────
+  const newCTs = [...new Set(ccData.map(w => w.ct).filter(Boolean))];
+  let addedCTs = 0;
+  newCTs.forEach(ct => {
+    if (!cats.congTrinh.includes(ct)) {
+      cats.congTrinh.push(ct);
+      addedCTs++;
+    }
+  });
+  if (addedCTs > 0) {
+    cats.congTrinh.sort();
+    localStorage.setItem('cat_ct', JSON.stringify(cats.congTrinh));
+  }
+
+  // ── Tự động thêm tên công nhân vào danh mục Người TH ─────────────
+  const allWorkerNames = [...new Set(
+    ccData.flatMap(w => (w.workers || []).map(wk => wk.name).filter(Boolean))
+  )];
+  let addedNames = 0;
+  allWorkerNames.forEach(name => {
+    if (!cats.nguoiTH.includes(name)) {
+      cats.nguoiTH.push(name);
+      addedNames++;
+    }
+  });
+  if (addedNames > 0) {
+    cats.nguoiTH.sort();
+    localStorage.setItem('cat_nguoi', JSON.stringify(cats.nguoiTH));
+  }
+
+  // ── Tự động thêm tên TP/NCC từ tiền ứng vào danh mục Thầu Phụ ────
+  const allTPs = [...new Set(ungRecords.map(r => r.tp).filter(Boolean))];
+  let addedTPs = 0;
+  allTPs.forEach(tp => {
+    if (!cats.thauPhu.includes(tp)) {
+      cats.thauPhu.push(tp);
+      addedTPs++;
+    }
+  });
+  if (addedTPs > 0) {
+    cats.thauPhu.sort();
+    localStorage.setItem('cat_tp', JSON.stringify(cats.thauPhu));
+  }
+
+  // ── Tự động thêm tên công nhân vào danh mục Công Nhân ───────────
+  allWorkerNames.forEach(name => {
+    if (!cats.congNhan.includes(name)) {
+      cats.congNhan.push(name);
+    }
+  });
+  if (cats.congNhan.length > 0) {
+    cats.congNhan.sort();
+    localStorage.setItem('cat_cn', JSON.stringify(cats.congNhan));
+  }
+
+  // ── Tạo hóa đơn từ chấm công ──────────────────────────────────────
+  ccData.forEach(week => {
+    const { fromDate, toDate, ct, workers } = week;
+    if (!fromDate || !ct || !workers || !workers.length) return;
+    const weekPrefix = 'cc|' + fromDate + '|' + ct + '|';
+
+    // HĐ Mua Lẻ — 1 HĐ mỗi worker có hdmuale > 0
+    workers.forEach(wk => {
+      if (!wk.hdmuale || wk.hdmuale <= 0) return;
+      const key = weekPrefix + wk.name + '|hdml';
+      ccUpsertInvoice(key, {
+        ngay: toDate, congtrinh: ct, loai: 'Hóa Đơn Lẻ',
+        nguoi: wk.name, ncc: '',
+        nd: wk.nd || ('HĐ mua lẻ – ' + wk.name + ' (' + viShort(fromDate) + '–' + viShort(toDate) + ')'),
+        tien: wk.hdmuale, thanhtien: wk.hdmuale
+      });
+      totalHdml++;
+    });
+
+    // HĐ Nhân Công — 1 HĐ mỗi tuần+ct
+    const totalLuong = workers.reduce((s, wk) => {
+      const tc = (wk.d || []).reduce((a, v) => a + (v || 0), 0);
+      return s + tc * (wk.luong || 0) + (wk.phucap || 0);
+    }, 0);
+
+    if (totalLuong > 0) {
+      const ncKey = weekPrefix + 'nhanCong';
+      const firstWorker = (workers.find(w => w.name) || { name: '' }).name;
+      ccUpsertInvoice(ncKey, {
+        ngay: toDate, congtrinh: ct, loai: 'Nhân Công',
+        nguoi: firstWorker, ncc: '',
+        nd: 'Lương tuần ' + viShort(fromDate) + '–' + viShort(toDate),
+        tien: totalLuong, thanhtien: totalLuong
+      });
+      totalWeeks++;
+    }
+  });
+
+  save('inv_v3', invoices);
+  updateTop();
+  return { weeks: totalWeeks, hdml: totalHdml, cts: addedCTs, names: addedNames };
 }
 
 function saveCCWeek(){
