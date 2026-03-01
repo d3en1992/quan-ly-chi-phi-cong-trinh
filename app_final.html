@@ -989,100 +989,307 @@ const CATS = [
 const JB_KEY  = '$2a$10$r5DjIcTFNpYbiL01yaLXKeBsYLPi.AK8593Yf.Hr3ZwCcznyQsJ6q';
 const JB_BASE = 'https://api.jsonbin.io/v3/b';
 const JB_HDR  = { 'Content-Type':'application/json', 'X-Master-Key': JB_KEY };
-const BIN_ID_KEY = 'jb_bin_id';
+const MASTER_KEY = 'jb_master_id';   // localStorage key lưu ID bin master
+const BIN_ID_KEY = 'jb_bin_id';      // legacy (backward compat)
+
+// ══ NÉN / GIẢI NÉN ═══════════════════════════════════════════
+// inv: id→i ngay→d congtrinh→c loai→l nguoi→n ncc→s nd→t tien→p thanhtien→q sl→k ccKey→x _ts→m
+// cc week: id→i fromDate→f toDate→e ct→c workers→w
+// cc worker: name→n d→d luong→l phucap→p hdmuale→h nd→t
+// ung: id→i ngay→d tp→t congtrinh→c tien→p nd→n
+// tb: id→i ct→c ten→t soluong→s tinhtrang→r nguoi→n ghichu→g ngay→d
+function compressInv(arr) {
+  return arr.map(o=>{const r={};
+    if(o.id!==undefined)r.i=o.id; if(o.ngay)r.d=o.ngay; if(o.congtrinh)r.c=o.congtrinh;
+    if(o.loai)r.l=o.loai; if(o.nguoi)r.n=o.nguoi; if(o.ncc)r.s=o.ncc; if(o.nd)r.t=o.nd;
+    if(o.tien)r.p=o.tien; if(o.thanhtien&&o.thanhtien!==o.tien)r.q=o.thanhtien;
+    if(o.sl&&o.sl!==1)r.k=o.sl; if(o.ccKey)r.x=o.ccKey; if(o._ts)r.m=o._ts; return r;});
+}
+function expandInv(arr) {
+  return arr.map(o=>({id:o.i,ngay:o.d,congtrinh:o.c,loai:o.l,nguoi:o.n||'',ncc:o.s||'',
+    nd:o.t||'',tien:o.p||0,thanhtien:o.q||(o.p||0),sl:o.k||undefined,ccKey:o.x||undefined,_ts:o.m||undefined}));
+}
+function compressCC(arr) {
+  return arr.map(w=>({i:w.id,f:w.fromDate,e:w.toDate,c:w.ct,
+    w:w.workers.map(wk=>{const r={n:wk.name,d:wk.d,l:wk.luong};
+      if(wk.phucap)r.p=wk.phucap; if(wk.hdmuale)r.h=wk.hdmuale; if(wk.nd)r.t=wk.nd; return r;})}));
+}
+function expandCC(arr) {
+  return arr.map(w=>({id:w.i,fromDate:w.f,toDate:w.e,ct:w.c,
+    workers:w.w.map(wk=>({name:wk.n,d:wk.d,luong:wk.l||0,phucap:wk.p||0,hdmuale:wk.h||0,nd:wk.t||''}))}));
+}
+function compressUng(arr) {
+  return arr.map(o=>({i:o.id,d:o.ngay,t:o.tp||o.ncc||'',c:o.congtrinh,p:o.tien||0,n:o.nd||''}));
+}
+function expandUng(arr) {
+  return arr.map(o=>({id:o.i,ngay:o.d,tp:o.t,congtrinh:o.c,tien:o.p||0,nd:o.n||''}));
+}
+function compressTb(arr) {
+  return arr.map(o=>({i:o.id,c:o.ct,t:o.ten,s:o.soluong||0,r:o.tinhtrang,n:o.nguoi||'',g:o.ghichu||'',d:o.ngay||''}));
+}
+function expandTb(arr) {
+  return arr.map(o=>({id:o.i,ct:o.c,ten:o.t,soluong:o.s||0,tinhtrang:o.r||'Đang hoạt động',nguoi:o.n||'',ghichu:o.g||'',ngay:o.d||''}));
+}
 
 function load(k, def) {
-  try { const d=localStorage.getItem(k); return d?JSON.parse(d):(Array.isArray(def)?def.slice():def); }
-  catch(e){ return Array.isArray(def)?def.slice():def; }
+  try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : def; } catch { return def; }
 }
 function save(k, v) {
-  localStorage.setItem(k, JSON.stringify(v));
   clearTimeout(save._t);
-  save._t = setTimeout(jbPushAll, 2000);
+  localStorage.setItem(k, JSON.stringify(v));
+  save._t = setTimeout(jbPushAll, 2500);
 }
 
-function jbAllData() {
-  return {
-    inv_v3: load('inv_v3',[]), ung_v1: load('ung_v1',[]), cc_v2: load('cc_v2',[]), tb_v1: load('tb_v1',[]),
-    cats: {
-      congTrinh: load('cat_ct', DEFAULTS.congTrinh),
-      loaiChiPhi: load('cat_loai', DEFAULTS.loaiChiPhi),
-      nhaCungCap: load('cat_ncc', DEFAULTS.nhaCungCap),
-      nguoiTH: load('cat_nguoi', DEFAULTS.nguoiTH)
-    }
+// ══ HỆ THỐNG MASTER BIN ══════════════════════════════════════
+// Chỉ cần 1 Master Bin ID. Master lưu map { bins: {"2025":"id..","cats":"id.."} }
+// App tự tạo bin con cho từng năm và lưu vào master.
+
+let _masterBins = null; // cache: { "2025": "binId", "cats": "binId", ... }
+
+function getMasterId()  { return localStorage.getItem(MASTER_KEY) || localStorage.getItem(BIN_ID_KEY) || ''; }
+function getMasterBins(){ return _masterBins || load('jb_bins_cache', {}); }
+function saveMasterBins(bins){ _masterBins=bins; localStorage.setItem('jb_bins_cache', JSON.stringify(bins)); }
+
+// Kích thước ước tính data năm
+function estimateYearKb(yr) {
+  const ys = String(yr || activeYear || new Date().getFullYear());
+  const data = {
+    i: compressInv(load('inv_v3',[]).filter(x=>x.ngay&&x.ngay.startsWith(ys))),
+    u: compressUng(load('ung_v1',[]).filter(x=>x.ngay&&x.ngay.startsWith(ys))),
+    c: compressCC(load('cc_v2',[]).filter(x=>x.fromDate&&x.fromDate.startsWith(ys))),
   };
+  return Math.round(JSON.stringify(data).length/1024*10)/10;
 }
 
-// ── Lưu lên JSONBin ────────────────────────────────────────
+// Build dữ liệu nén
+function jbYearData(yr) {
+  const y = yr || activeYear || new Date().getFullYear();
+  const ys = String(y);
+  return { v:3, yr:y,
+    i: compressInv(load('inv_v3',[]).filter(x=>x.ngay&&x.ngay.startsWith(ys))),
+    u: compressUng(load('ung_v1',[]).filter(x=>x.ngay&&x.ngay.startsWith(ys))),
+    c: compressCC(load('cc_v2',[]).filter(x=>x.fromDate&&x.fromDate.startsWith(ys))),
+    t: compressTb(load('tb_v1',[]).filter(x=>x.ngay&&x.ngay.startsWith(ys))) };
+}
+function jbCatsData() {
+  return { v:3, cats:{ct:load('cat_ct',DEFAULTS.congTrinh),loai:load('cat_loai',DEFAULTS.loaiChiPhi),
+    ncc:load('cat_ncc',DEFAULTS.nhaCungCap),nguoi:load('cat_nguoi',DEFAULTS.nguoiTH)} };
+}
+function jbMasterData(bins) {
+  return { v:3, type:'master', bins: bins || getMasterBins() };
+}
+
+// Tạo 1 bin con, resolve(binId) khi xong
+function _createBin(name, data) {
+  return fetch(JB_BASE,{method:'POST',headers:{...JB_HDR,'X-Bin-Name':name,'X-Bin-Private':'false'},
+    body:JSON.stringify(data)}).then(r=>r.json()).then(res=>{
+    if(res.metadata&&res.metadata.id) return res.metadata.id;
+    throw new Error(res.message||'create failed');
+  });
+}
+// PUT bin
+function _putBin(binId, data) {
+  return fetch(JB_BASE+'/'+binId,{method:'PUT',headers:JB_HDR,body:JSON.stringify(data)})
+    .then(r=>r.json());
+}
+// GET bin
+function _getBin(binId) {
+  return fetch(JB_BASE+'/'+binId+'/latest',{headers:{'X-Master-Key':JB_KEY}})
+    .then(r=>r.json()).then(res=>res.record);
+}
+
+// ── Cập nhật master bin (lưu map bins) ───────────────────
+function _updateMaster(bins) {
+  const masterId = getMasterId();
+  if(!masterId) return Promise.resolve();
+  saveMasterBins(bins);
+  return _putBin(masterId, jbMasterData(bins)).catch(()=>{});
+}
+
+// ── Lưu năm hiện tại lên cloud ───────────────────────────
+let _jbPending = false;
 function jbPushAll() {
-  const binId = localStorage.getItem(BIN_ID_KEY);
-  if (!binId) return; // chưa có bin — không lưu tự động
-  showSyncBanner('☁️ Đang lưu...');
-  fetch(JB_BASE + '/' + binId, {
-    method: 'PUT', headers: JB_HDR, body: JSON.stringify(jbAllData())
-  })
-  .then(r => r.json())
-  .then(res => {
-    if (res.record) { showSyncBanner('✅ Đã lưu cloud', 2000); updateJbBtn(); }
-    else showSyncBanner('⚠️ Lỗi lưu: ' + (res.message||'?'), 3000);
-  })
-  .catch(() => showSyncBanner('⚠️ Mất kết nối internet', 3000));
-}
+  const masterId = getMasterId();
+  if(!masterId) return; // chưa kết nối
+  const yr = activeYear || new Date().getFullYear();
+  const bins = getMasterBins();
+  const yearBinId = bins[String(yr)];
+  const data = jbYearData(yr);
+  const kb = Math.round(JSON.stringify(data).length/1024*10)/10;
 
-// ── Tạo bin mới ───────────────────────────────────────────
-function jbCreateBin(callback) {
-  showSyncBanner('⏳ Đang tạo kho dữ liệu mới...');
-  fetch(JB_BASE, {
-    method: 'POST', headers: { ...JB_HDR, 'X-Bin-Name':'cpct', 'X-Bin-Private':'false' },
-    body: JSON.stringify(jbAllData())
-  })
-  .then(r => r.json())
-  .then(res => {
-    if (res.metadata && res.metadata.id) {
-      localStorage.setItem(BIN_ID_KEY, res.metadata.id);
-      showSyncBanner('✅ Đã tạo xong!', 2500);
+  if(!yearBinId) {
+    // Chưa có bin cho năm này → tạo mới + cập nhật master
+    if(_jbPending) return;
+    _jbPending = true;
+    showSyncBanner('⏳ Tạo bin năm '+yr+'...');
+    _createBin('cpct_'+yr, data).then(newId=>{
+      bins[String(yr)] = newId;
+      _jbPending = false;
+      showSyncBanner('✅ Đã tạo bin '+yr+' ('+kb+'kb)', 2500);
       updateJbBtn();
-      callback(res.metadata.id);
-    } else {
-      showSyncBanner('⚠️ Lỗi tạo bin: ' + (res.message||'?'), 3000);
-      callback(null);
-    }
-  })
-  .catch(() => { showSyncBanner('⚠️ Mất kết nối', 3000); callback(null); });
+      return _updateMaster(bins);
+    }).then(()=>{ _jbPushCats(bins); })
+    .catch(e=>{ _jbPending=false; showSyncBanner('⚠️ Lỗi tạo bin: '+e.message,3000); });
+    return;
+  }
+
+  showSyncBanner('☁️ Đang lưu (~'+kb+'kb)...');
+  _putBin(yearBinId, data).then(res=>{
+    if(res.record){
+      showSyncBanner('✅ Đã lưu cloud (~'+kb+'kb)', 2000);
+      updateJbBtn();
+      _updateMaster(bins);
+      _jbPushCats(bins);
+    } else if(res.message&&res.message.includes('100kb')) {
+      showSyncBanner('⚠️ Vượt 100kb! Xóa bớt dữ liệu cũ hoặc nâng Pro',5000);
+    } else showSyncBanner('⚠️ Lỗi: '+(res.message||'?'),3000);
+  }).catch(()=>showSyncBanner('⚠️ Mất kết nối',3000));
 }
 
-// ── Tải dữ liệu về từ JSONBin ─────────────────────────────
+function _jbPushCats(bins) {
+  const b = bins || getMasterBins();
+  const catsBinId = b['cats'];
+  if(!catsBinId) return;
+  _putBin(catsBinId, jbCatsData()).catch(()=>{});
+}
+
+// ── Tạo toàn bộ (master + năm hiện tại + cats) ───────────
+function jbCreateBin(callback) {
+  const yr = activeYear || new Date().getFullYear();
+  const yearData = jbYearData(yr);
+  const catsData = jbCatsData();
+  const kb = Math.round(JSON.stringify(yearData).length/1024*10)/10;
+  showSyncBanner('⏳ Đang tạo kho dữ liệu ('+kb+'kb)...');
+
+  Promise.all([
+    _createBin('cpct_'+yr, yearData),
+    _createBin('cpct_cats', catsData),
+  ]).then(([yearId, catsId])=>{
+    const bins = { [String(yr)]: yearId, cats: catsId };
+    saveMasterBins(bins);
+    // Tạo master bin
+    return _createBin('cpct_master', jbMasterData(bins)).then(masterId=>{
+      localStorage.setItem(MASTER_KEY, masterId);
+      localStorage.removeItem(BIN_ID_KEY);
+      showSyncBanner('✅ Đã tạo xong! ('+kb+'kb)', 2500);
+      updateJbBtn();
+      callback(masterId);
+    });
+  }).catch(e=>{
+    showSyncBanner('⚠️ Lỗi: '+e.message, 3000);
+    callback(null);
+  });
+}
+
+// ── Tải dữ liệu từ cloud (master → năm → cats) ───────────
 function gsLoadAll(callback) {
-  const binId = localStorage.getItem(BIN_ID_KEY);
-  if (!binId) { callback(null); return; }
-  showSyncBanner('⏳ Đang tải dữ liệu...');
-  fetch(JB_BASE + '/' + binId + '/latest', { headers: { 'X-Master-Key': JB_KEY } })
-  .then(r => r.json())
-  .then(res => {
-    const data = res.record;
-    if (!data) { hideSyncBanner(); callback(null); return; }
-    if (data.inv_v3) localStorage.setItem('inv_v3', JSON.stringify(data.inv_v3));
-    if (data.ung_v1) localStorage.setItem('ung_v1', JSON.stringify(data.ung_v1));
-    if (data.cc_v2)  localStorage.setItem('cc_v2',  JSON.stringify(data.cc_v2));
-    if (data.tb_v1)  localStorage.setItem('tb_v1',  JSON.stringify(data.tb_v1));
-    if (data.cats) {
-      const ct = data.cats;
-      if (ct.congTrinh)  localStorage.setItem('cat_ct',   JSON.stringify(ct.congTrinh));
-      if (ct.loaiChiPhi) localStorage.setItem('cat_loai', JSON.stringify(ct.loaiChiPhi));
-      if (ct.nhaCungCap) localStorage.setItem('cat_ncc',  JSON.stringify(ct.nhaCungCap));
-      if (ct.nguoiTH)    localStorage.setItem('cat_nguoi',JSON.stringify(ct.nguoiTH));
+  const masterId = getMasterId();
+  if(!masterId) { callback(null); return; }
+  const yr = activeYear || new Date().getFullYear();
+  showSyncBanner('⏳ Đang tải năm '+yr+'...');
+
+  // Bước 1: đọc master để lấy map bins
+  _getBin(masterId).then(masterData=>{
+    if(!masterData) throw new Error('empty master');
+
+    // Detect: nếu masterData là bin cũ (không có type:'master') → backward compat
+    if(!masterData.type && masterData.v !== 3) {
+      // Legacy bin: xử lý trực tiếp
+      _loadLegacyData(masterData, callback);
+      return;
     }
+
+    // Format mới: đọc bins map
+    const bins = masterData.bins || {};
+    saveMasterBins(bins);
+
+    const promises = [];
+    // Load năm hiện tại
+    const yearBinId = bins[String(yr)];
+    if(yearBinId) promises.push(_getBin(yearBinId).then(d=>({type:'year', data:d, yr})));
+    else promises.push(Promise.resolve({type:'year', data:null, yr}));
+
+    // Load cats (từ master data trực tiếp nếu có, hoặc bin riêng)
+    const catsBinId = bins['cats'];
+    if(catsBinId) promises.push(_getBin(catsBinId).then(d=>({type:'cats', data:d})));
+
+    return Promise.all(promises).then(results=>{
+      results.forEach(r=>{
+        if(r.type==='year' && r.data) _applyYearData(r.data, r.yr);
+        if(r.type==='cats' && r.data && r.data.cats) _applyCats(r.data.cats);
+      });
+      hideSyncBanner(); callback(masterData);
+
+      // Nếu không có bin năm này → push để tạo mới
+      if(!yearBinId) setTimeout(()=>jbPushAll(), 1000);
+    });
+  }).catch(e=>{
     hideSyncBanner();
-    callback(data);
-  })
-  .catch(() => { hideSyncBanner(); callback(null); });
+    console.warn('gsLoadAll error:', e);
+    callback(null);
+  });
 }
 
+function _applyYearData(data, yr) {
+  if(!data) return;
+  const ys = String(data.yr||yr);
+  const mergeArr = (key, expanded) => {
+    const existing = load(key,[]).filter(x=>{
+      const d = x.ngay||x.fromDate||'';
+      return !d.startsWith(ys);
+    });
+    localStorage.setItem(key, JSON.stringify([...expanded,...existing]));
+  };
+  if(data.i) mergeArr('inv_v3', expandInv(data.i));
+  if(data.u) mergeArr('ung_v1', expandUng(data.u));
+  if(data.c) { const ex=load('cc_v2',[]).filter(x=>!x.fromDate||!x.fromDate.startsWith(ys));
+    localStorage.setItem('cc_v2', JSON.stringify([...expandCC(data.c),...ex])); }
+  if(data.t) { const ex=load('tb_v1',[]).filter(x=>!x.ngay||!x.ngay.startsWith(ys));
+    localStorage.setItem('tb_v1', JSON.stringify([...expandTb(data.t),...ex])); }
+  // Backward: format v2 không nén
+  if(data.inv_v3) localStorage.setItem('inv_v3', JSON.stringify(data.inv_v3));
+  if(data.ung_v1) localStorage.setItem('ung_v1', JSON.stringify(data.ung_v1));
+  if(data.cc_v2)  localStorage.setItem('cc_v2',  JSON.stringify(data.cc_v2));
+  if(data.tb_v1)  localStorage.setItem('tb_v1',  JSON.stringify(data.tb_v1));
+}
+
+function _applyCats(ct) {
+  if(ct.ct||ct.congTrinh)    localStorage.setItem('cat_ct',   JSON.stringify(ct.ct||ct.congTrinh));
+  if(ct.loai||ct.loaiChiPhi) localStorage.setItem('cat_loai', JSON.stringify(ct.loai||ct.loaiChiPhi));
+  if(ct.ncc||ct.nhaCungCap)  localStorage.setItem('cat_ncc',  JSON.stringify(ct.ncc||ct.nhaCungCap));
+  if(ct.nguoi||ct.nguoiTH)   localStorage.setItem('cat_nguoi',JSON.stringify(ct.nguoi||ct.nguoiTH));
+}
+
+function _loadLegacyData(data, callback) {
+  // Bin cũ format v1/v2 — đọc trực tiếp + migrate
+  const yr = activeYear || new Date().getFullYear();
+  if(data.v===2) {
+    _applyYearData(data, yr);
+  } else {
+    if(data.inv_v3) localStorage.setItem('inv_v3', JSON.stringify(data.inv_v3));
+    if(data.ung_v1) localStorage.setItem('ung_v1', JSON.stringify(data.ung_v1));
+    if(data.cc_v2)  localStorage.setItem('cc_v2',  JSON.stringify(data.cc_v2));
+    if(data.tb_v1)  localStorage.setItem('tb_v1',  JSON.stringify(data.tb_v1));
+  }
+  if(data.cats) _applyCats(data.cats);
+  hideSyncBanner(); callback(data);
+  // Migrate: tạo cấu trúc master mới tự động sau 3s
+  setTimeout(()=>{
+    showSyncBanner('⏳ Đang nâng cấp cấu trúc cloud...');
+    jbCreateBin(newMasterId=>{
+      if(newMasterId) {
+        localStorage.setItem(MASTER_KEY, newMasterId);
+        localStorage.removeItem(BIN_ID_KEY);
+        showSyncBanner('✅ Đã nâng cấp xong!', 3000);
+      }
+    });
+  }, 3000);
+}
 // ── Cập nhật nút Cloud ────────────────────────────────────
 function updateJbBtn() {
   const btn = document.getElementById('jb-btn');
   if (!btn) return;
-  const binId = localStorage.getItem(BIN_ID_KEY);
+  const binId = getMasterId();
   if (binId) {
     btn.textContent = '✅ Cloud';
     btn.style.background = 'rgba(26,122,69,0.4)';
@@ -1102,44 +1309,98 @@ function openBinModal() {
 }
 
 function renderBinModal(binId) {
-  const body = document.getElementById('bin-modal-body');
-  if (binId) {
-    body.innerHTML = `
-      <p style="font-size:13px;color:#5a5650;margin-bottom:14px;line-height:1.6">
-        Kho dữ liệu của bạn đã sẵn sàng.<br>
-        <strong>Để dùng trên điện thoại/máy khác:</strong> copy Bin ID bên dưới rồi dán vào thiết bị đó.
-      </p>
-      <div style="background:#f5f4f0;border-radius:8px;padding:10px 14px;font-family:'IBM Plex Mono',monospace;font-size:12px;word-break:break-all;margin-bottom:12px;border:1px solid #e2e0db">${binId}</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
-        <button onclick="copyBinId()" class="btn btn-primary" style="flex:1">📋 Copy Bin ID</button>
-        <button onclick="syncNow()" class="btn btn-outline" style="flex:1">🔄 Đồng bộ ngay</button>
+  const masterId = getMasterId();
+  const bins = getMasterBins();
+  const yr = activeYear || new Date().getFullYear();
+  const ov = document.getElementById('ct-modal');
+  const yearKb = estimateYearKb(yr);
+  const isConnected = !!masterId;
+
+  // Danh sách bins theo năm
+  const yearBinsHtml = Object.entries(bins)
+    .filter(([k])=>k!=='cats')
+    .sort(([a],[b])=>b-a)
+    .map(([y,bid])=>`
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:11px">
+        <span style="color:#888">Năm ${y}</span>
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#555;overflow:hidden;text-overflow:ellipsis;max-width:200px">${bid}</span>
+      </div>`).join('') || '<div style="font-size:11px;color:#aaa;padding:4px 0">Chưa có bin năm nào</div>';
+
+  const html = `<div style="max-width:460px;width:95vw;background:#fff;border-radius:16px;padding:24px;font-family:'IBM Plex Sans',sans-serif;box-shadow:0 12px 48px rgba(0,0,0,.18)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h3 style="font-size:17px;font-weight:800;margin:0">☁️ Kết Nối Cloud JSONBin</h3>
+      <button onclick="document.getElementById('ct-modal').style.display='none'" style="background:none;border:none;font-size:22px;cursor:pointer;color:#888;line-height:1">✕</button>
+    </div>
+
+    ${isConnected ? `
+    <div style="background:#f0fff4;border:1px solid #b2dfdb;border-radius:8px;padding:10px 14px;margin-bottom:14px">
+      <div style="font-size:11px;font-weight:700;color:#1a7a45;margin-bottom:4px">✅ ĐÃ KẾT NỐI — MASTER BIN ID</div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;word-break:break-all;color:#333;margin-bottom:8px">${masterId}</div>
+      <div style="font-size:11px;color:#555;border-top:1px solid #c8e6c9;padding-top:8px;margin-top:4px">
+        <div style="font-weight:700;margin-bottom:4px">Các bin dữ liệu (tự động quản lý):</div>
+        ${yearBinsHtml}
       </div>
-      <hr style="border:none;border-top:1px solid #e2e0db;margin-bottom:14px">
-      <p style="font-size:12px;color:#9a9590;margin-bottom:8px">Dùng thiết bị khác? Dán Bin ID vào đây:</p>
-      <div style="display:flex;gap:8px">
-        <input id="bin-input" type="text" placeholder="Dán Bin ID từ thiết bị kia vào đây..."
-          style="flex:1;padding:8px 10px;border-radius:7px;border:1.5px solid #cccac4;font-family:'IBM Plex Mono',monospace;font-size:11px;outline:none">
-        <button onclick="linkBinId()" class="btn btn-green">Kết nối</button>
+    </div>
+    <div style="background:#f5f4f0;border-radius:8px;padding:8px 12px;margin-bottom:14px;font-size:12px">
+      📊 Dữ liệu năm ${yr}: <strong style="color:${yearKb<70?'#1a7a45':yearKb<90?'#e67e00':'#c0392b'}">${yearKb}kb</strong> / 100kb
+      <span style="margin-left:6px;background:${yearKb<70?'#d4edda':yearKb<90?'#fff3cd':'#f8d7da'};color:${yearKb<70?'#155724':yearKb<90?'#856404':'#721c24'};border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700">
+        ${yearKb<70?'✅ OK':yearKb<90?'⚠️ Gần đầy':'🔴 Cần xử lý'}</span>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      <button onclick="syncNow()" style="flex:1;min-width:100px;padding:10px;border-radius:8px;border:1.5px solid #1565c0;background:transparent;color:#1565c0;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🔄 Tải Về</button>
+      <button onclick="jbDisconnect()" style="flex:1;min-width:100px;padding:10px;border-radius:8px;border:1.5px solid #c0392b;background:transparent;color:#c0392b;font-family:inherit;font-size:13px;cursor:pointer">⛔ Ngắt Kết Nối</button>
+    </div>
+    ` : `
+    <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:#856404">
+      ℹ️ Chưa kết nối cloud. Nhập <strong>Master Bin ID</strong> nếu đã có, hoặc tạo mới.
+    </div>
+    `}
+
+    <div style="margin-bottom:10px">
+      <label style="font-size:11px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px">
+        ${isConnected?'Đổi Master Bin ID':'Nhập Master Bin ID'}
+      </label>
+      <div style="display:flex;gap:6px">
+        <input id="jb-id-input" type="text" value="${masterId}" placeholder="Nhập Master Bin ID..."
+          style="flex:1;padding:8px 10px;border:1.5px solid #ddd;border-radius:8px;font-family:'IBM Plex Mono',monospace;font-size:12px;outline:none">
+        <button onclick="jbSaveId()" style="padding:8px 14px;border-radius:8px;border:none;background:#1a1814;color:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">💾 Lưu</button>
       </div>
-      <div style="margin-top:12px">
-        <button onclick="resetBin()" style="background:none;border:none;color:#c0392b;font-size:11px;cursor:pointer;padding:0;text-decoration:underline">Tạo kho mới (xóa liên kết hiện tại)</button>
-      </div>`;
-  } else {
-    body.innerHTML = `
-      <p style="font-size:13px;color:#5a5650;margin-bottom:16px;line-height:1.6">
-        Bạn chưa có kho dữ liệu cloud. Chọn một trong hai:
-      </p>
-      <button onclick="createNewBin()" class="btn btn-primary" style="width:100%;margin-bottom:10px;padding:10px">
-        🆕 Tạo kho mới (lần đầu dùng)
-      </button>
-      <p style="font-size:12px;color:#9a9590;margin-bottom:8px;text-align:center">— hoặc —</p>
-      <p style="font-size:12px;color:#5a5650;margin-bottom:8px">Đã có Bin ID từ thiết bị khác? Dán vào đây:</p>
-      <div style="display:flex;gap:8px">
-        <input id="bin-input" type="text" placeholder="Dán Bin ID vào đây..."
-          style="flex:1;padding:8px 10px;border-radius:7px;border:1.5px solid #cccac4;font-family:'IBM Plex Mono',monospace;font-size:11px;outline:none">
-        <button onclick="linkBinId()" class="btn btn-green">Kết nối</button>
-      </div>`;
-  }
+    </div>
+
+    ${!isConnected?`
+    <button onclick="jbCreateBin(id=>{if(id)renderBinModal(id)})"
+      style="width:100%;padding:12px;border-radius:8px;border:none;background:#1a7a45;color:#fff;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:10px">
+      ✨ Tạo Kho Dữ Liệu Mới (Tự Động)
+    </button>`:''}
+
+    <div style="font-size:11px;color:#aaa;text-align:center;line-height:1.5">
+      Chỉ cần 1 Master ID duy nhất · App tự tạo bin cho mỗi năm · Mỗi bin ≤ 100kb
+    </div>
+  </div>`;
+
+  ov.innerHTML = html;
+  ov.style.display = 'flex';
+}
+
+function jbSaveId() {
+  const val = (document.getElementById('jb-id-input')?.value||'').trim();
+  if (!val || val.length < 10) { toast('Vui lòng nhập Master Bin ID hợp lệ!', 'error'); return; }
+  localStorage.setItem(MASTER_KEY, val);
+  localStorage.removeItem(BIN_ID_KEY);
+  _masterBins = null; // reset cache
+  document.getElementById('ct-modal').style.display='none';
+  toast('✅ Đã lưu Master Bin ID! Đang tải dữ liệu...', 'success');
+  updateJbBtn(); reloadFromCloud();
+}
+
+function jbDisconnect() {
+  if(!confirm('Ngắt kết nối cloud? Dữ liệu local vẫn còn.')) return;
+  localStorage.removeItem(MASTER_KEY);
+  localStorage.removeItem(BIN_ID_KEY);
+  localStorage.removeItem('jb_bins_cache');
+  _masterBins = null;
+  document.getElementById('ct-modal').style.display='none';
+  updateJbBtn(); toast('Đã ngắt kết nối cloud');
 }
 
 function closeBinModal() {
@@ -1147,11 +1408,11 @@ function closeBinModal() {
 }
 
 function copyBinId() {
-  const id = localStorage.getItem(BIN_ID_KEY) || '';
-  if (!id) return;
+  const id = getMasterId();
+  if(!id) return;
   navigator.clipboard.writeText(id)
-    .then(() => toast('✅ Đã copy Bin ID!', 'success'))
-    .catch(() => { prompt('Copy Bin ID này:', id); });
+    .then(()=>toast('✅ Đã copy Master Bin ID!','success'))
+    .catch(()=>{ prompt('Copy Master Bin ID:', id); });
 }
 
 function createNewBin() {
@@ -1163,21 +1424,9 @@ function createNewBin() {
   });
 }
 
-function linkBinId() {
-  const val = (document.getElementById('bin-input').value || '').trim();
-  if (val.length < 10) { toast('Bin ID không hợp lệ!', 'error'); return; }
-  localStorage.setItem(BIN_ID_KEY, val);
-  updateJbBtn();
-  closeBinModal();
-  reloadFromCloud();
-}
+function linkBinId() { jbSaveId(); }
 
-function resetBin() {
-  if (!confirm('Xóa liên kết kho hiện tại?\nDữ liệu trên cloud vẫn còn, chỉ ngắt kết nối trên máy này.')) return;
-  localStorage.removeItem(BIN_ID_KEY);
-  updateJbBtn();
-  renderBinModal('');
-}
+function resetBin() { jbDisconnect(); }
 
 function syncNow() {
   closeBinModal();
