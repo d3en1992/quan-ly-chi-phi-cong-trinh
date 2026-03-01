@@ -140,6 +140,10 @@ body { font-family: 'IBM Plex Sans', sans-serif; background: var(--bg); color: v
   outline: none; transition: background 0.1s; min-width: 0;
 }
 .cell-input:focus { background: #fffbef; box-shadow: inset 0 0 0 2px var(--gold); border-radius: 3px; }
+@media (pointer: coarse) {
+  .tien-input, .cc-wage-input, .np-num-input { cursor: pointer; background: rgba(240,180,41,0.05); border-radius: 4px; }
+  .tien-input:focus, .cc-wage-input:focus, .np-num-input:focus { box-shadow: none; background: rgba(240,180,41,0.08); }
+}
 .cell-input.mono { font-family: 'IBM Plex Mono', monospace; }
 .cell-input.right { text-align: right; font-family: 'IBM Plex Mono', monospace; font-weight: 600; }
 .cell-input.center { text-align: center; }
@@ -378,6 +382,81 @@ select.cell-input {
   #page-chamcong .entry-date-bar { flex-wrap: wrap; gap: 6px; }
   #page-chamcong .btn-group { flex-wrap: wrap; }
 }
+
+/* ══ NUMPAD OVERLAY (mobile số tiền) ══════════════════════════ */
+#numpad-overlay {
+  display: none; position: fixed; inset: 0; z-index: 8000;
+  background: rgba(0,0,0,0.45); align-items: flex-end; justify-content: center;
+}
+#numpad-overlay.open { display: flex; }
+#numpad-box {
+  background: #1a1814; border-radius: 20px 20px 0 0;
+  width: 100%; max-width: 480px; padding: 0 0 env(safe-area-inset-bottom,0);
+  box-shadow: 0 -8px 40px rgba(0,0,0,0.4);
+  font-family: 'IBM Plex Sans', sans-serif;
+  animation: slideUp 0.22s cubic-bezier(0.34,1.2,0.64,1);
+}
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+#numpad-display {
+  padding: 16px 20px 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+#numpad-label {
+  font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.4);
+  text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;
+}
+#numpad-value {
+  font-family: 'IBM Plex Mono', monospace; font-size: 32px; font-weight: 700;
+  color: #4cde80; min-height: 44px; word-break: break-all;
+  display: flex; align-items: center; gap: 4px;
+}
+#numpad-value .np-cursor {
+  width: 2px; height: 36px; background: #4cde80;
+  animation: blink 1s steps(1) infinite;
+}
+@keyframes blink { 50% { opacity: 0; } }
+#numpad-save-btn {
+  margin: 10px 16px 4px; width: calc(100% - 32px);
+  background: #2a2a2a; border: none; border-radius: 10px;
+  color: rgba(255,255,255,0.7); font-family: inherit; font-size: 15px;
+  font-weight: 600; padding: 13px; cursor: pointer; transition: all 0.15s;
+}
+#numpad-save-btn:active { background: #3a3a3a; }
+#numpad-shortcuts {
+  display: flex; gap: 6px; padding: 6px 12px 4px; overflow-x: auto;
+  scrollbar-width: none;
+}
+#numpad-shortcuts::-webkit-scrollbar { display: none; }
+.np-shortcut {
+  flex-shrink: 0; padding: 5px 12px; border-radius: 20px;
+  background: rgba(255,255,255,0.08); border: none;
+  color: rgba(255,255,255,0.6); font-size: 12px; font-weight: 600;
+  cursor: pointer; font-family: 'IBM Plex Mono', monospace;
+  transition: all 0.12s;
+}
+.np-shortcut:active { background: rgba(255,255,255,0.18); color: #fff; }
+#numpad-keys {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+  padding: 6px 10px 12px;
+}
+.np-key {
+  padding: 0; border: none; border-radius: 12px; cursor: pointer;
+  font-family: 'IBM Plex Mono', monospace; font-size: 20px; font-weight: 600;
+  height: 60px; display: flex; align-items: center; justify-content: center;
+  transition: all 0.1s; -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.np-key:active { transform: scale(0.93); }
+.np-key.digit { background: #2e2c28; color: #fff; }
+.np-key.digit:active { background: #3e3c38; }
+.np-key.op { background: #3a3835; color: #f0b429; font-size: 22px; }
+.np-key.op:active { background: #4a4845; }
+.np-key.del { background: #3a3835; color: #e55; font-size: 18px; }
+.np-key.del:active { background: #4a4845; }
+.np-key.zero3 { background: #2e2c28; color: #fff; font-size: 16px; }
+.np-key.done { background: #1a7a45; color: #fff; font-size: 18px; border-radius: 12px; }
+.np-key.done:active { background: #155c35; }
+.np-key.clear { background: #3a3835; color: rgba(255,255,255,0.7); font-size: 16px; }
 </style>
 </head>
 <body>
@@ -427,7 +506,6 @@ select.cell-input {
       <div class="btn-group">
         <button class="btn btn-outline" onclick="clearTable()">🗑 Xóa bảng</button>
         <button class="btn btn-outline" onclick="exportEntryCSV()">⬇ Xuất CSV</button>
-        <button class="btn btn-green" onclick="saveAllRows()">💾 Lưu tất cả</button>
       </div>
     </div>
 
@@ -444,10 +522,12 @@ select.cell-input {
               <th class="col-num">#</th>
               <th class="col-loai">Loại Chi Phí *</th>
               <th class="col-ct">Công Trình *</th>
+              <th class="col-tien">Số Tiền (đ)</th>
+              <th style="width:72px;text-align:center">SL</th>
+              <th style="width:130px;text-align:right">Th Tiền (đ)</th>
+              <th class="col-nd">Nội Dung / Ghi Chú</th>
               <th class="col-nguoi">Người TH</th>
               <th class="col-ncc">Nhà Cung Cấp</th>
-              <th class="col-nd">Nội Dung / Ghi Chú</th>
-              <th class="col-tien">Số Tiền (đ)</th>
               <th class="col-del"></th>
             </tr>
           </thead>
@@ -467,7 +547,30 @@ select.cell-input {
         <span>Dòng có dữ liệu: <strong id="row-count">0</strong></span>
         <span>Tổng thành tiền: <span class="hi" id="entry-total">0 đ</span></span>
       </div>
-      <button class="btn btn-green" onclick="saveAllRows()">💾 Cập Nhật</button>
+      <button class="btn btn-green" onclick="saveAllRows()">💾 Lưu / Cập Nhật</button>
+    </div>
+
+    <!-- Bảng HĐ đã nhập trong ngày -->
+    <div style="margin-top:20px" id="today-invoices-wrap">
+      <div class="section-header">
+        <div class="section-title" style="font-size:14px"><span class="dot"></span>Hóa Đơn Đã Nhập Hôm Nay <span id="today-inv-date" style="color:var(--gold);font-size:13px"></span></div>
+        <button class="btn btn-outline btn-sm" onclick="renderTodayInvoices()">↻ Làm mới</button>
+      </div>
+      <div class="records-wrap">
+        <div style="overflow-x:auto">
+          <table class="records-table" style="min-width:700px">
+            <thead><tr>
+              <th>Loại</th><th>Công Trình</th>
+              <th style="text-align:right">Số Tiền</th>
+              <th style="text-align:center">SL</th>
+              <th style="text-align:right">Thành Tiền</th>
+              <th>Nội Dung</th><th>Người TH</th><th></th>
+            </tr></thead>
+            <tbody id="today-inv-tbody"></tbody>
+          </table>
+        </div>
+        <div id="today-inv-footer" style="padding:8px 16px;border-top:1px solid var(--line);background:#f3f1ec;font-size:12px;color:var(--ink2);display:flex;justify-content:space-between"></div>
+      </div>
     </div>
   </div>
 
@@ -1131,7 +1234,7 @@ let cats = {
 let invoices = load('inv_v3', []);
 let filteredInvs = [];
 let curPage = 1;
-const PG = 60;
+const PG = 13;
 
 // ══════════════════════════════
 //  INIT
@@ -1149,6 +1252,7 @@ function init() {
 
   buildYearSelect();
   renderTrash();
+  renderTodayInvoices();
 
   // Tải dữ liệu mới nhất từ cloud (nếu đã có Bin ID)
   gsLoadAll(function(data) {
@@ -1183,6 +1287,7 @@ function goPage(btn, id) {
   btn.classList.add('active');
   if (id==='ct') renderCtPage();
   if (id==='tatca') { buildFilters(); filterAndRender(); }
+  if (id==='nhap') { renderTodayInvoices(); }
   if (id==='danhmuc') renderSettings();
   if (id==='nhapung') { initUngTableIfEmpty(); buildUngFilters(); filterAndRenderUng(); }
   if (id==='chamcong') { populateCCCtSel(); rebuildCCNameList(); renderCCHistory(); renderCCTLT(); }
@@ -1212,10 +1317,22 @@ function addRow(d={}) {
   const dlNguoi = 'dlN' + num + Date.now();
   const dlNcc   = 'dlC' + num + Date.now();
 
+  const slVal = d.sl||'';
+  const thTien = slVal && d.tien ? numFmt((d.sl||1)*(d.tien||0)) : (d.tien?numFmt(d.tien):'');
+
   tr.innerHTML = `
     <td class="row-num">${num}</td>
     <td><select class="cell-input" data-f="loai">${loaiOpts}</select></td>
     <td><select class="cell-input" data-f="ct">${ctOpts}</select></td>
+    <td><input class="cell-input right tien-input" data-f="tien" data-raw="${d.tien||''}" placeholder="0" value="${d.tien?numFmt(d.tien):''}"></td>
+    <td style="padding:0"><input type="number" class="cell-input" data-f="sl" min="0" step="0.01"
+      value="${x(slVal)}" placeholder="1"
+      style="text-align:center;width:100%;border:none;background:transparent;padding:7px 6px;font-family:'IBM Plex Mono',monospace;font-size:13px;outline:none;-moz-appearance:textfield"
+      inputmode="decimal"></td>
+    <td style="padding:0;text-align:right">
+      <span data-f="thtien" style="display:block;padding:7px 8px;font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:13px;color:var(--green)">${thTien}</span>
+    </td>
+    <td><input class="cell-input" data-f="nd" value="${x(d.nd||'')}" placeholder="Nội dung..."></td>
     <td>
       <input class="cell-input" data-f="nguoi" list="${dlNguoi}" value="${x(d.nguoi||'')}" placeholder="Nhập hoặc chọn...">
       <datalist id="${dlNguoi}">${cats.nguoiTH.map(v=>`<option value="${x(v)}">`).join('')}</datalist>
@@ -1224,10 +1341,17 @@ function addRow(d={}) {
       <input class="cell-input" data-f="ncc" list="${dlNcc}" value="${x(d.ncc||'')}" placeholder="Nhập hoặc chọn...">
       <datalist id="${dlNcc}">${cats.nhaCungCap.map(v=>`<option value="${x(v)}">`).join('')}</datalist>
     </td>
-    <td><input class="cell-input" data-f="nd" value="${x(d.nd||'')}" placeholder="Nội dung..."></td>
-    <td><input class="cell-input right tien-input" data-f="tien" data-raw="${d.tien||''}" placeholder="0" value="${d.tien?numFmt(d.tien):''}"></td>
     <td><button class="del-btn" onclick="delRow(this)">✕</button></td>
   `;
+
+  function updateThTien() {
+    const tienRaw = parseInt(tr.querySelector('[data-f="tien"]').dataset.raw||'0')||0;
+    const slRaw   = parseFloat(tr.querySelector('[data-f="sl"]').value)||1;
+    const th = tienRaw * slRaw;
+    const thEl = tr.querySelector('[data-f="thtien"]');
+    if(thEl) thEl.textContent = th ? numFmt(th) : '';
+    tr.querySelector('[data-f="thtien"]').dataset.raw = th;
+  }
 
   // Thousand-separator logic for tien input
   const tienInput = tr.querySelector('[data-f="tien"]');
@@ -1235,24 +1359,31 @@ function addRow(d={}) {
     const raw = this.value.replace(/[.,]/g,'');
     this.dataset.raw = raw;
     if(raw) this.value = numFmt(parseInt(raw,10)||0);
-    calcSummary();
+    updateThTien(); calcSummary();
   });
-  tienInput.addEventListener('focus', function() {
-    this.value = this.dataset.raw || '';
-  });
+  tienInput.addEventListener('focus', function() { this.value = this.dataset.raw || ''; });
   tienInput.addEventListener('blur', function() {
     const raw = parseInt(this.dataset.raw||'0',10)||0;
     this.value = raw ? numFmt(raw) : '';
   });
+  tr.querySelector('[data-f="sl"]').addEventListener('input', function() {
+    updateThTien(); calcSummary();
+  });
 
   tr.querySelectorAll('input,select').forEach(el => {
-    if(el.dataset.f!=='tien') {
+    if(el.dataset.f!=='tien' && el.dataset.f!=='sl') {
       el.addEventListener('input', calcSummary);
       el.addEventListener('change', calcSummary);
     }
   });
 
   tbody.appendChild(tr);
+  // Trigger initial thTien
+  const tRaw = parseInt(tienInput.dataset.raw||'0')||0;
+  const sRaw = parseFloat(tr.querySelector('[data-f="sl"]').value)||1;
+  const th0 = tRaw*sRaw;
+  const thEl0 = tr.querySelector('[data-f="thtien"]');
+  if(thEl0){ thEl0.textContent = th0?numFmt(th0):''; thEl0.dataset.raw=th0; }
 }
 
 function delRow(btn) { btn.closest('tr').remove(); renumber(); calcSummary(); }
@@ -1267,10 +1398,11 @@ function calcSummary() {
   let cnt=0, total=0;
   document.querySelectorAll('#entry-tbody tr').forEach(tr => {
     const loai = tr.querySelector('[data-f="loai"]')?.value||'';
-    const ct = tr.querySelector('[data-f="ct"]')?.value||'';
-    const tienEl = tr.querySelector('[data-f="tien"]');
-    const tien = parseInt(tienEl?.dataset.raw||'0',10)||0;
-    if(loai||ct||tien>0) { cnt++; total += tien; }
+    const ct   = tr.querySelector('[data-f="ct"]')?.value||'';
+    const tienRaw = parseInt(tr.querySelector('[data-f="tien"]')?.dataset.raw||'0',10)||0;
+    const sl   = parseFloat(tr.querySelector('[data-f="sl"]')?.value)||1;
+    const thTien = tienRaw * sl;
+    if(loai||ct||tienRaw>0) { cnt++; total += thTien; }
   });
   document.getElementById('row-count').textContent = cnt;
   document.getElementById('entry-total').textContent = fmtM(total);
@@ -1293,19 +1425,21 @@ function saveAllRows() {
     if(!ct||!loai) { errRow++; tr.style.background='#fdecea'; return; }
     tr.style.background='';
     const editId = tr.dataset.editId;
+    const sl = parseFloat(tr.querySelector('[data-f="sl"]')?.value)||1;
+    const thanhtien = Math.round(tien * sl);
     const payload = {
       ngay:date, congtrinh:ct, loai,
       nguoi:(tr.querySelector('[data-f="nguoi"]')?.value||'').trim(),
       ncc:(tr.querySelector('[data-f="ncc"]')?.value||'').trim(),
       nd:(tr.querySelector('[data-f="nd"]')?.value||'').trim(),
-      tien, thanhtien: tien
+      tien, sl: sl!==1?sl:undefined, thanhtien
     };
     if (editId) {
       // Chế độ CẬP NHẬT hóa đơn cũ
       const idx = invoices.findIndex(i=>String(i.id)===String(editId));
-      if(idx>=0) { invoices[idx]={...invoices[idx],...payload}; updated++; }
+      if(idx>=0) { invoices[idx]={...invoices[idx],...payload, _ts: Date.now()}; updated++; }
     } else {
-      invoices.unshift({id: Date.now()+Math.random(), ...payload});
+      invoices.unshift({id: Date.now()+Math.random(), _ts: Date.now(), ...payload});
       saved++;
     }
   });
@@ -1315,8 +1449,15 @@ function saveAllRows() {
   buildYearSelect(); updateTop();
   if(updated>0) toast(`✅ Đã cập nhật ${updated} hóa đơn!`,'success');
   else toast(`✅ Đã lưu ${saved} hóa đơn!`,'success');
-  initTable(10);
-  document.getElementById('entry-date').value = today();
+  // KHÔNG xóa bảng — đánh dấu row đã lưu bằng nền xanh nhạt
+  document.querySelectorAll('#entry-tbody tr').forEach(tr => {
+    const loai = (tr.querySelector('[data-f="loai"]')?.value||'').trim();
+    const ct   = (tr.querySelector('[data-f="ct"]')?.value||'').trim();
+    const tien = parseInt(tr.querySelector('[data-f="tien"]')?.dataset.raw||'0',10)||0;
+    if(loai&&ct) tr.style.background='#f0fff4'; // đã lưu thành công
+  });
+  // Render bảng HĐ trong ngày
+  renderTodayInvoices();
 }
 
 // ══════════════════════════════
@@ -1342,12 +1483,19 @@ function filterAndRender() {
   const fLoai=document.getElementById('f-loai').value;
   const fMonth=document.getElementById('f-month').value;
   filteredInvs = invoices.filter(inv => {
-    if(!inActiveYear(inv.ngay)) return false;  // lọc năm
+    if(!inActiveYear(inv.ngay)) return false;
     if(fCt && inv.congtrinh!==fCt) return false;
     if(fLoai && inv.loai!==fLoai) return false;
     if(fMonth && !inv.ngay.startsWith(fMonth)) return false;
     if(q) { const t=[inv.ngay,inv.congtrinh,inv.loai,inv.nguoi,inv.sohd,inv.nd].join(' ').toLowerCase(); if(!t.includes(q)) return false; }
     return true;
+  });
+  // Sort: HĐ mới sửa/thêm trước (dùng _ts timestamp), rồi theo ngày giảm dần
+  filteredInvs.sort((a,b)=>{
+    const ta = a._ts||0, tb2 = b._ts||0;
+    if(ta!==tb2) return tb2-ta;
+    if(b.ngay!==a.ngay) return (b.ngay||'').localeCompare(a.ngay||'');
+    return 0;
   });
   renderTable();
 }
@@ -1356,16 +1504,12 @@ function renderTable() {
   const tbody=document.getElementById('all-tbody');
   const start=(curPage-1)*PG;
   const paged=filteredInvs.slice(start,start+PG);
-  const sumTT=filteredInvs.reduce((s,i)=>s+i.tien,0);
+  const sumTT=filteredInvs.reduce((s,i)=>s+(i.thanhtien||i.tien||0),0);
   if(!paged.length) {
     tbody.innerHTML=`<tr class="empty-row"><td colspan="10">Không có hóa đơn nào</td></tr>`;
     document.getElementById('pagination').innerHTML=''; return;
   }
   tbody.innerHTML = paged.map(inv=>{
-    const isCCInv = !!inv.ccKey;
-    const editBtn = isCCInv
-      ? `<button class="btn btn-outline btn-sm" onclick="editCCInvoice(${JSON.stringify(String(inv.id))})" title="Sửa trong Chấm Công">✏️</button>`
-      : `<button class="btn btn-outline btn-sm" onclick="editManualInvoice(${JSON.stringify(String(inv.id))})" title="Sửa trong Nhập HĐ">✏️</button>`;
     return `<tr>
     <td style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink2)">${inv.ngay}</td>
     <td style="font-weight:600;font-size:12px;max-width:220px">${x(inv.congtrinh)}</td>
@@ -1373,8 +1517,8 @@ function renderTable() {
     <td class="hide-mobile" style="color:var(--ink2)">${x(inv.nguoi||'—')}</td>
     <td class="hide-mobile" style="color:var(--ink2)">${x(inv.ncc||'—')}</td>
     <td style="color:var(--ink2);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${x(inv.nd)}">${x(inv.nd||'—')}</td>
-    <td class="amount-td">${numFmt(inv.tien||0)}</td>
-    <td style="white-space:nowrap">${editBtn}<button class="btn btn-danger btn-sm" onclick="delInvoice('${inv.id}')">✕</button></td>
+    <td class="amount-td" title="Đơn giá: ${numFmt(inv.tien||0)}${inv.sl&&inv.sl!==1?' × '+inv.sl:''}">${numFmt(inv.thanhtien||inv.tien||0)}</td>
+    <td style="white-space:nowrap"><button class="btn btn-danger btn-sm" onclick="delInvoice('${inv.id}')">✕</button></td>
   </tr>`;}).join('');
 
   const tp=Math.ceil(filteredInvs.length/PG);
@@ -1445,7 +1589,7 @@ function editManualInvoice(id) {
     // Set ngày và clear bảng, tạo 1 hàng với dữ liệu HĐ cũ
     document.getElementById('entry-date').value=inv.ngay||today();
     document.getElementById('entry-tbody').innerHTML='';
-    addRow({loai:inv.loai,congtrinh:inv.congtrinh,nguoi:inv.nguoi||'',ncc:inv.ncc||'',nd:inv.nd||'',tien:inv.tien||0});
+    addRow({loai:inv.loai,congtrinh:inv.congtrinh,sl:inv.sl||undefined,nguoi:inv.nguoi||'',ncc:inv.ncc||'',nd:inv.nd||'',tien:inv.tien||0});
     // Đánh dấu edit mode — saveAllRows sẽ UPDATE thay vì thêm mới
     const row=document.querySelector('#entry-tbody tr');
     if(row) row.dataset.editId=String(inv.id);
@@ -1482,7 +1626,7 @@ function saveEditInvoice(id) {
   const idx=invoices.findIndex(i=>String(i.id)===String(id));
   if(idx<0) return;
   const tien=parseInt(document.getElementById('ei-tien').value)||0;
-  invoices[idx]={...invoices[idx],ngay:document.getElementById('ei-ngay').value,loai:document.getElementById('ei-loai').value,congtrinh:document.getElementById('ei-ct').value,nguoi:document.getElementById('ei-nguoi').value.trim(),nd:document.getElementById('ei-nd').value.trim(),tien,thanhtien:tien};
+  invoices[idx]={...invoices[idx],ngay:document.getElementById('ei-ngay').value,loai:document.getElementById('ei-loai').value,congtrinh:document.getElementById('ei-ct').value,nguoi:document.getElementById('ei-nguoi').value.trim(),nd:document.getElementById('ei-nd').value.trim(),tien,thanhtien:tien,_ts:Date.now()};
   save('inv_v3',invoices);
   document.getElementById('edit-inv-overlay').remove();
   buildFilters(); filterAndRender(); updateTop();
@@ -1497,8 +1641,8 @@ function renderCtPage() {
   const map={};
   invoices.forEach(inv=>{
     if(!map[inv.congtrinh]) map[inv.congtrinh]={total:0,count:0,byLoai:{}};
-    map[inv.congtrinh].total+=inv.tien||inv.thanhtien||0; map[inv.congtrinh].count++;
-    map[inv.congtrinh].byLoai[inv.loai]=(map[inv.congtrinh].byLoai[inv.loai]||0)+(inv.tien||inv.thanhtien||0);
+    map[inv.congtrinh].total+=(inv.thanhtien||inv.tien||0); map[inv.congtrinh].count++;
+    map[inv.congtrinh].byLoai[inv.loai]=(map[inv.congtrinh].byLoai[inv.loai]||0)+(inv.thanhtien||inv.tien||0);
   });
   const sortBy=(document.getElementById('ct-sort')?.value)||'value';
   const entries=Object.entries(map).sort((a,b)=>
@@ -1525,13 +1669,13 @@ function showCtModal(ctName) {
   document.getElementById('modal-title').textContent='🏗️ '+ctName;
   const byLoai={};
   invs.forEach(inv=>{ if(!byLoai[inv.loai])byLoai[inv.loai]=[]; byLoai[inv.loai].push(inv); });
-  const total=invs.reduce((s,i)=>s+(i.tien||i.thanhtien||0),0);
+  const total=invs.reduce((s,i)=>s+(i.thanhtien||i.tien||0),0);
   let html=`<div style="display:flex;gap:12px;margin-bottom:18px">
     <div style="flex:1;background:var(--bg);border-radius:8px;padding:12px"><div style="font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Tổng HĐ</div><div style="font-size:22px;font-weight:700">${invs.length}</div></div>
     <div style="flex:2;background:var(--green-bg);border-radius:8px;padding:12px"><div style="font-size:10px;color:var(--ink3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Tổng Chi Phí</div><div style="font-size:20px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:var(--green)">${fmtM(total)}</div></div>
   </div>`;
   Object.entries(byLoai).forEach(([loai,invList])=>{
-    const lt=invList.reduce((s,i)=>s+(i.tien||i.thanhtien||0),0);
+    const lt=invList.reduce((s,i)=>s+(i.thanhtien||i.tien||0),0);
     html+=`<div style="margin-bottom:16px">
       <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 12px;background:var(--gold-bg);border-radius:6px;margin-bottom:6px">
         <span class="tag tag-gold">${x(loai)}</span>
@@ -1543,7 +1687,7 @@ function showCtModal(ctName) {
           <td style="padding:6px 8px;font-family:'IBM Plex Mono',monospace;color:var(--ink2)">${i.ngay}</td>
           <td style="padding:6px 8px;color:var(--ink2)">${x(i.nguoi||'—')}</td>
           <td style="padding:6px 8px;color:var(--ink2)">${x(i.nd||'—')}</td>
-          <td style="padding:6px 8px;text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--green)">${numFmt(i.tien||i.thanhtien||0)}</td>
+          <td style="padding:6px 8px;text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--green)">${numFmt(i.thanhtien||i.tien||0)}</td>
         </tr>`).join('')}</tbody>
       </table>
     </div>`;
@@ -1697,7 +1841,7 @@ function addUngRow(d={}) {
     <td class="row-num">${num}</td>
     <td>
       <input class="cell-input" data-f="tp" list="${dlTp}" value="${x(d.tp||'')}" placeholder="Nhập hoặc chọn...">
-      <datalist id="${dlTp}">${[...cats.nguoiTH,...cats.nhaCungCap].map(v=>`<option value="${x(v)}">`).join('')}</datalist>
+      <datalist id="${dlTp}">${[...cats.thauPhu,...cats.nhaCungCap].map(v=>`<option value="${x(v)}">`).join('')}</datalist>
     </td>
     <td><select class="cell-input" data-f="ct">${ctOpts}</select></td>
     <td><input class="cell-input right tien-input" data-f="tien" data-raw="${d.tien||''}" placeholder="0" value="${d.tien?numFmt(d.tien):''}"></td>
@@ -1904,7 +2048,7 @@ function dlCSV(rows,name) {
 //  HELPERS
 // ══════════════════════════════
 function updateTop() {
-  const total = invoices.filter(i=>inActiveYear(i.ngay)).reduce((s,i)=>s+(i.tien||i.thanhtien||0),0);
+  const total = invoices.filter(i=>inActiveYear(i.ngay)).reduce((s,i)=>s+(i.thanhtien||i.tien||0),0);
   document.getElementById('top-total').textContent=fmtS(total);
 }
 function numFmt(n){ if(!n&&n!==0)return''; return parseInt(n,10).toLocaleString('vi-VN'); }
@@ -1921,7 +2065,8 @@ function toast(msg,type='') { const t=document.getElementById('toast'); t.textCo
 let ccData   = load('cc_v2', []);
 let ccOffset = 0;
 let ccHistPage = 1, ccTltPage = 1;
-const CC_PG = 80;
+const CC_PG_HIST = 30;
+const CC_PG_TLT = 20;
 const CC_DAY_LABELS   = ['CN','T2','T3','T4','T5','T6','T7'];
 const CC_DATE_OFFSETS = [0,1,2,3,4,5,6]; // offset from Sunday (week starts Sunday)
 
@@ -2523,8 +2668,8 @@ function renderCCHistory(){
     document.getElementById('cc-hist-pagination').innerHTML=''; return;
   }
 
-  const start=(ccHistPage-1)*CC_PG;
-  const paged=rows.slice(start,start+CC_PG);
+  const start=(ccHistPage-1)*CC_PG_HIST;
+  const paged=rows.slice(start,start+CC_PG_HIST);
 
   tbody.innerHTML=paged.map(r=>`<tr>
     <td style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink2);white-space:nowrap">${viShort(r.fromDate)}<br><span style="color:var(--ink3)">${viShort(r.toDate)}</span></td>
@@ -2544,7 +2689,7 @@ function renderCCHistory(){
     </td>
   </tr>`).join('');
 
-  const tp=Math.ceil(rows.length/CC_PG);
+  const tp=Math.ceil(rows.length/CC_PG_HIST);
   let pag=`<span>${rows.length} dòng · Tổng lương: <strong style="color:var(--green);font-family:'IBM Plex Mono',monospace">${fmtS(totalTL)}</strong> · Tổng cộng: <strong style="color:var(--gold);font-family:'IBM Plex Mono',monospace">${fmtS(totalTC2)}</strong></span>`;
   if(tp>1){
     pag+='<div class="page-btns">';
@@ -2564,26 +2709,33 @@ function renderCCTLT(){
   const fWk=document.getElementById('cc-tlt-week').value;
   const fCt2=document.getElementById('cc-tlt-ct')?.value||'';
 
-  // Group by (fromDate, name) — accumulate day-by-day across CT
+  // Group by name only khi "tất cả tuần", hoặc (tuần+name) khi lọc tuần cụ thể
   const map={};
   ccData.forEach(w=>{
-    if(!inActiveYear(w.fromDate)) return;  // lọc năm
+    if(!inActiveYear(w.fromDate)) return;
     if(fCt2&&w.ct!==fCt2) return;
     if(fWk&&w.fromDate!==fWk) return;
     w.workers.forEach(wk=>{
-      const key=w.fromDate+'|'+wk.name;
+      // key: nếu có lọc tuần → phân theo tuần, nếu không → gộp theo tên
+      const key = fWk ? w.fromDate+'|'+wk.name : wk.name;
       if(!map[key]) map[key]={fromDate:w.fromDate,toDate:w.toDate,name:wk.name,
-        d:[0,0,0,0,0,0,0],tc:0,tl:0,pc:0,cts:[]};
+        d:[0,0,0,0,0,0,0],tc:0,tl:0,pc:0,cts:[],luongList:[]};
       wk.d.forEach((v,i)=>{ map[key].d[i]+=v; });
       const tc=wk.d.reduce((s,v)=>s+v,0);
       map[key].tc+=tc;
       map[key].tl+=tc*(wk.luong||0);
       map[key].pc+=(wk.phucap||0);
-      map[key].cts.push(w.ct);
+      if(!map[key].cts.includes(w.ct)) map[key].cts.push(w.ct);
+      map[key].luongList.push(wk.luong||0);
+      // Cập nhật range ngày nếu gộp nhiều tuần
+      if(!fWk){ if(w.fromDate<map[key].fromDate) map[key].fromDate=w.fromDate;
+                if(w.toDate>map[key].toDate) map[key].toDate=w.toDate; }
     });
   });
 
-  const rows=Object.values(map).sort((a,b)=>b.fromDate.localeCompare(a.fromDate)||a.name.localeCompare(b.name));
+  const rows=Object.values(map).sort((a,b)=>
+    fWk ? b.fromDate.localeCompare(a.fromDate)||a.name.localeCompare(b.name,'vi')
+        : a.name.localeCompare(b.name,'vi'));
   const tbody=document.getElementById('cc-tlt-tbody');
   if(!rows.length){
     tbody.innerHTML=`<tr class="empty-row"><td colspan="13">Chưa có dữ liệu</td></tr>`;
@@ -2591,15 +2743,15 @@ function renderCCTLT(){
   }
 
   const grandTCLuong=rows.reduce((s,r)=>s+r.tl+r.pc,0);
-  const start=(ccTltPage-1)*CC_PG;
-  const paged=rows.slice(start,start+CC_PG);
+  const start=(ccTltPage-1)*CC_PG_TLT;
+  const paged=rows.slice(start,start+CC_PG_TLT);
 
   const mono="font-family:'IBM Plex Mono',monospace";
   tbody.innerHTML=paged.map(r=>{
     const tcLuong=r.tl+r.pc;
     const luongTB=r.tc>0?Math.round(tcLuong/r.tc):0;
     return `<tr>
-    <td style="${mono};font-size:11px;color:var(--ink2);white-space:nowrap">${viShort(r.fromDate)}<br><span style="color:var(--ink3)">${viShort(r.toDate)}</span></td>
+    <td style="${mono};font-size:10px;color:var(--ink2);white-space:nowrap">${fWk?viShort(r.fromDate):'Tổng'}<br><span style="color:var(--ink3)">${fWk?viShort(r.toDate):r.tc+' công'}</span></td>
     <td style="font-weight:700;font-size:13px">${x(r.name||'—')}</td>
     ${r.d.map(v=>`<td style="text-align:center;${mono};font-weight:600;font-size:12px;${v===1?'color:var(--green)':v>0?'color:var(--blue)':'color:var(--line2)'}">${v||'·'}</td>`).join('')}
     <td style="text-align:center;${mono};font-weight:700;color:var(--gold)">${r.tc}</td>
@@ -2608,7 +2760,7 @@ function renderCCTLT(){
     <td style="font-size:11px;color:var(--ink2);max-width:200px">${r.cts.map(c=>x(c)).join('<br>')}</td>
   </tr>`;}).join('');
 
-  const tp=Math.ceil(rows.length/CC_PG);
+  const tp=Math.ceil(rows.length/CC_PG_TLT);
   let pag=`<span>${rows.length} công nhân · Tổng TC Lương: <strong style="color:var(--green);${mono}">${fmtS(grandTCLuong)}</strong></span>`;
   if(tp>1){
     pag+='<div class="page-btns">';
@@ -2767,6 +2919,7 @@ function trashRestore(id) {
   delete inv._deletedAt;
   invoices.unshift(inv);
   trash.splice(idx,1);
+  inv._ts = Date.now(); // đánh dấu vừa khôi phục
   save('inv_v3',invoices);
   localStorage.setItem('trash_v1',JSON.stringify(trash));
   updateTop(); buildFilters(); filterAndRender(); renderTrash();
@@ -2811,6 +2964,253 @@ function renderTrash() {
     </td>
   </tr>`).join('');
 }
+
+// ══════════════════════════════════════════════════════════════════
+//  BẢNG HÓA ĐƠN ĐÃ NHẬP TRONG NGÀY
+// ══════════════════════════════════════════════════════════════════
+function renderTodayInvoices() {
+  const date = document.getElementById('entry-date')?.value || today();
+  const dateEl = document.getElementById('today-inv-date');
+  if(dateEl) dateEl.textContent = '— ' + date;
+
+  const tbody = document.getElementById('today-inv-tbody');
+  const footer = document.getElementById('today-inv-footer');
+  if(!tbody) return;
+
+  // Lọc HĐ theo ngày đã chọn (không phân biệt năm)
+  const todayInvs = invoices.filter(i => i.ngay === date && !i.ccKey);
+  if(!todayInvs.length) {
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="8">Chưa có hóa đơn nào vào ngày ${date}</td></tr>`;
+    if(footer) footer.innerHTML = '';
+    return;
+  }
+
+  const mono = "font-family:'IBM Plex Mono',monospace";
+  tbody.innerHTML = todayInvs.map(inv => {
+    const sl = inv.sl||1;
+    const th = inv.thanhtien || (inv.tien*(sl));
+    return `<tr>
+      <td><span class="tag tag-gold">${x(inv.loai||'—')}</span></td>
+      <td style="font-size:12px;font-weight:600;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${x(inv.congtrinh||'—')}</td>
+      <td style="text-align:right;${mono};font-size:12px;color:var(--ink2)">${inv.tien?numFmt(inv.tien):'—'}</td>
+      <td style="text-align:center;${mono};font-size:12px;color:var(--blue)">${sl!==1?sl:''}</td>
+      <td style="text-align:right;${mono};font-weight:700;color:var(--green)">${numFmt(th)}</td>
+      <td style="color:var(--ink2);font-size:11px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${x(inv.nd||'—')}</td>
+      <td style="color:var(--ink2);font-size:11px">${x(inv.nguoi||'—')}</td>
+      <td style="white-space:nowrap;display:flex;gap:3px;padding:5px 4px">
+        <button class="btn btn-outline btn-sm" onclick="editTodayInv('${inv.id}')" title="Sửa">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="delInvoice('${inv.id}');renderTodayInvoices()">✕</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  const total = todayInvs.reduce((s,i)=>s+(i.thanhtien||i.tien||0),0);
+  if(footer) footer.innerHTML = `<span>${todayInvs.length} hóa đơn</span><span>Tổng: <strong style="color:var(--gold);${mono}">${fmtS(total)}</strong></span>`;
+}
+
+function editTodayInv(id) {
+  const inv = invoices.find(i=>String(i.id)===String(id));
+  if(!inv) return;
+  document.getElementById('entry-date').value = inv.ngay || today();
+  document.getElementById('entry-tbody').innerHTML = '';
+  addRow({loai:inv.loai, congtrinh:inv.congtrinh, sl:inv.sl||undefined,
+           nguoi:inv.nguoi||'', ncc:inv.ncc||'', nd:inv.nd||'', tien:inv.tien||0});
+  const row = document.querySelector('#entry-tbody tr');
+  if(row) row.dataset.editId = String(inv.id);
+  calcSummary();
+  window.scrollTo({top:0, behavior:'smooth'});
+  toast('✏️ Chỉnh sửa rồi nhấn 💾 Lưu / Cập Nhật', 'success');
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  NUMPAD OVERLAY — bàn phím số mobile
+// ══════════════════════════════════════════════════════════════════
+const isTouchDevice = () => window.matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
+
+let _npTarget = null;
+let _npRaw = '0';
+let _npOp  = null;
+let _npLeft = null;
+
+function openNumpad(inputEl, label) {
+  _npTarget = inputEl;
+  // cc-wage-input: lấy data-raw; np-num-input: lấy value; tien-input: lấy data-raw
+  let startVal;
+  if(inputEl.classList.contains('np-num-input')) {
+    startVal = String(parseFloat(inputEl.value)||0);
+  } else {
+    startVal = String(inputEl.dataset.raw || inputEl.value || '0');
+  }
+  _npRaw = (startVal && startVal!=='0') ? startVal : '0';
+  if(!_npRaw) _npRaw='0';
+  _npOp = null; _npLeft = null;
+  document.getElementById('numpad-label').textContent = label || 'Nhập số tiền';
+  _npRefresh();
+  document.getElementById('numpad-overlay').classList.add('open');
+  inputEl.blur();
+  inputEl.setAttribute('readonly', '');
+}
+
+function closeNumpad() {
+  document.getElementById('numpad-overlay').classList.remove('open');
+  if(_npTarget) _npTarget.removeAttribute('readonly');
+  _npTarget = null;
+}
+
+function _npCalcResult() {
+  const right = parseInt(_npRaw)||0;
+  if(_npLeft !== null && _npOp) {
+    if(_npOp==='+') return _npLeft + right;
+    if(_npOp==='−') return Math.max(0, _npLeft - right);
+    if(_npOp==='×') return _npLeft * right;
+    if(_npOp==='÷') return right ? Math.round(_npLeft / right) : _npLeft;
+  }
+  return parseInt(_npRaw)||0;
+}
+
+function _npRefresh() {
+  const txt = document.getElementById('numpad-text');
+  if(!txt) return;
+  const raw = parseInt(_npRaw)||0;
+  if(_npLeft !== null && _npOp) {
+    const leftFmt = numFmt(_npLeft);
+    const rightStr = (_npRaw && _npRaw!=='0') ? numFmt(parseInt(_npRaw)||0) : '?';
+    txt.textContent = leftFmt + ' ' + _npOp + ' ' + rightStr;
+  } else {
+    txt.textContent = raw ? numFmt(raw) : '0';
+  }
+  const val = _npCalcResult();
+  const saveBtn = document.getElementById('numpad-save-btn');
+  if(saveBtn) saveBtn.textContent = val ? 'Lưu  ' + numFmt(val) : 'Lưu';
+}
+
+function numpadKey(k) {
+  if(k==='C') {
+    _npRaw='0'; _npOp=null; _npLeft=null;
+  } else if(k==='⌫') {
+    _npRaw = _npRaw.length > 1 ? _npRaw.slice(0,-1) : '0';
+  } else if(k==='000') {
+    _npRaw = _npRaw==='0' ? '0' : _npRaw + '000';
+  } else if(k==='.') {
+    if(!_npRaw.includes('.')) _npRaw += '.';
+  } else if(['÷','×','−','+'].includes(k)) {
+    if(_npLeft!==null && _npOp && _npRaw!=='0') {
+      _npLeft = _npCalcResult(); _npRaw = '0';
+    } else {
+      _npLeft = parseInt(_npRaw)||0; _npRaw = '0';
+    }
+    _npOp = k;
+  } else {
+    _npRaw = _npRaw==='0' ? k : _npRaw + k;
+    if(_npRaw.length > 12) _npRaw = _npRaw.slice(0,12);
+  }
+  _npRefresh();
+}
+
+function numpadShortcut(amount) {
+  const cur = _npCalcResult();
+  _npRaw = String(cur + amount);
+  _npOp = null; _npLeft = null;
+  _npRefresh();
+}
+
+function numpadDone() {
+  const val = _npCalcResult();
+  if(_npTarget) {
+    const el = _npTarget;
+    el.dataset.raw = val;
+    const isCC = el.classList.contains('cc-wage-input');
+    const isNum = el.classList.contains('np-num-input');
+
+    if(isCC) {
+      // CC wage: set data-raw trực tiếp rồi gọi hàm tính lại
+      el.dataset.raw = val;
+      el.value = val ? numFmt(val) : '';
+      // Gọi calcCCRow để cập nhật tổng lương
+      const tr2 = el.closest('tr');
+      if(tr2) try { calcCCRow(tr2); updateCCSumRow && updateCCSumRow(); } catch(e){}
+    } else if(isNum) {
+      // np-num-input (TB soluong, modal): giá trị thô
+      el.value = val || '';
+    } else {
+      // tien-input: format
+      el.value = val ? numFmt(val) : '';
+      // Trigger updateThTien
+      const tr = el.closest('tr');
+      if(tr) {
+        const slEl = tr.querySelector('[data-f="sl"]');
+        const thEl = tr.querySelector('[data-f="thtien"]');
+        if(slEl && thEl) {
+          const sl = parseFloat(slEl.value)||1;
+          const th = val * sl;
+          thEl.textContent = th ? numFmt(th) : '';
+          thEl.dataset.raw = th;
+        }
+      }
+    }
+    try { calcSummary(); } catch(e){}
+    try { calcUngSummary(); } catch(e){}
+  }
+  closeNumpad();
+}
+
+// ── Helper: nhận biết ô số cần numpad ──────────────────────────
+function isNumpadTarget(el) {
+  return el.classList.contains('tien-input') ||
+         el.classList.contains('cc-wage-input') ||
+         el.classList.contains('np-num-input');
+}
+
+// ── Build label từ context ────────────────────────────────────
+function buildNumpadLabel(el) {
+  const tr = el.closest('tr');
+  // CC wage fields
+  const ccAttr = el.dataset.cc;
+  if(ccAttr) {
+    const labels = {luong:'Lương/Ngày', phucap:'Phụ Cấp', hdml:'HĐ Mua Lẻ'};
+    const name = tr?.querySelector('[data-cc="name"]')?.value||'';
+    return (labels[ccAttr]||'Nhập số') + (name?' — '+name:'');
+  }
+  // TB
+  const tbAttr = el.dataset.tb;
+  if(tbAttr==='soluong') {
+    const ten = tr?.querySelector('[data-tb="ten"]')?.value||'';
+    return 'Số Lượng' + (ten?' — '+ten:'');
+  }
+  // Modal inputs
+  if(el.id==='tb-ei-sl') return 'Số Lượng';
+  // tien / tiền ứng
+  if(tr) {
+    const loai = tr.querySelector('[data-f="loai"]')?.value || tr.querySelector('[data-f="tp"]')?.value || '';
+    const ct   = tr.querySelector('[data-f="ct"]')?.value || '';
+    return [loai, ct].filter(Boolean).join(' · ') || 'Nhập số tiền';
+  }
+  return 'Nhập số';
+}
+
+// Event delegation: intercept focus/click on touch devices
+document.addEventListener('focus', function(e) {
+  const el = e.target;
+  if(!isNumpadTarget(el)) return;
+  if(!isTouchDevice()) return;
+  e.preventDefault(); e.stopPropagation();
+  el.blur();
+  setTimeout(() => openNumpad(el, buildNumpadLabel(el)), 30);
+}, true);
+
+document.addEventListener('click', function(e) {
+  const el = e.target;
+  if(!isNumpadTarget(el)) return;
+  if(!isTouchDevice()) return;
+  e.preventDefault(); e.stopPropagation();
+  el.blur();
+  openNumpad(el, buildNumpadLabel(el));
+}, true);
+
+// Close with Escape key on desktop
+document.addEventListener('keydown', function(e) {
+  if(e.key==='Escape') closeNumpad();
+});
 
 init();
 
@@ -2877,7 +3277,7 @@ function tbAddRow(data, num) {
         style="width:100%;border:none;background:transparent;padding:7px 10px;font-size:13px;font-family:'IBM Plex Sans',sans-serif;outline:none;color:var(--ink)">
     </td>
     <td style="padding:0">
-      <input type="number" data-tb="soluong" min="0" step="1"
+      <input type="number" data-tb="soluong" class="np-num-input" min="0" step="1"
         value="${data?.soluong||''}" placeholder="0"
         style="width:100%;border:none;background:transparent;padding:7px 8px;text-align:center;font-size:13px;font-family:'IBM Plex Mono',monospace;outline:none;color:var(--ink)">
     </td>
@@ -3071,7 +3471,7 @@ function tbEditRow(id) {
           style="width:100%;padding:8px 10px;border:1.5px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px;outline:none"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div><label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:3px">Số Lượng</label>
-          <input id="tb-ei-sl" type="number" min="0" value="${r.soluong||0}"
+          <input id="tb-ei-sl" type="number" class="np-num-input" min="0" value="${r.soluong||0}"
             style="width:100%;padding:8px 10px;border:1.5px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px;outline:none"></div>
         <div><label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:3px">Tình Trạng</label>
           <select id="tb-ei-tt" style="width:100%;padding:8px 10px;border:1.5px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px;outline:none">${ttOpts}</select></div>
@@ -3129,5 +3529,50 @@ function tbExportCSV() {
 // (tbData đã load ở trên, tbBuildRows gọi khi goPage)
 
 </script>
+
+<!-- ══ NUMPAD OVERLAY ══════════════════════════════════════════ -->
+<div id="numpad-overlay" onclick="if(event.target===this)closeNumpad()">
+  <div id="numpad-box" onclick="event.stopPropagation()">
+    <div id="numpad-display">
+      <div id="numpad-label">Nhập số tiền</div>
+      <div id="numpad-value"><span id="numpad-text">0</span><span class="np-cursor"></span></div>
+    </div>
+    <button id="numpad-save-btn" onclick="numpadDone()">Lưu</button>
+    <div id="numpad-shortcuts">
+      <button class="np-shortcut" onclick="numpadShortcut(100000)">+100K</button>
+      <button class="np-shortcut" onclick="numpadShortcut(200000)">+200K</button>
+      <button class="np-shortcut" onclick="numpadShortcut(500000)">+500K</button>
+      <button class="np-shortcut" onclick="numpadShortcut(1000000)">+1Tr</button>
+      <button class="np-shortcut" onclick="numpadShortcut(2000000)">+2Tr</button>
+      <button class="np-shortcut" onclick="numpadShortcut(5000000)">+5Tr</button>
+      <button class="np-shortcut" onclick="numpadShortcut(10000000)">+10Tr</button>
+    </div>
+    <div id="numpad-keys">
+      <button class="np-key clear" onclick="numpadKey('C')">C</button>
+      <button class="np-key op" onclick="numpadKey('÷')">÷</button>
+      <button class="np-key op" onclick="numpadKey('×')">×</button>
+      <button class="np-key del" onclick="numpadKey('⌫')">⌫</button>
+
+      <button class="np-key digit" onclick="numpadKey('7')">7</button>
+      <button class="np-key digit" onclick="numpadKey('8')">8</button>
+      <button class="np-key digit" onclick="numpadKey('9')">9</button>
+      <button class="np-key op" onclick="numpadKey('−')">−</button>
+
+      <button class="np-key digit" onclick="numpadKey('4')">4</button>
+      <button class="np-key digit" onclick="numpadKey('5')">5</button>
+      <button class="np-key digit" onclick="numpadKey('6')">6</button>
+      <button class="np-key op" onclick="numpadKey('+')">+</button>
+
+      <button class="np-key digit" onclick="numpadKey('1')">1</button>
+      <button class="np-key digit" onclick="numpadKey('2')">2</button>
+      <button class="np-key digit" onclick="numpadKey('3')">3</button>
+      <button class="np-key done" onclick="numpadDone()" style="grid-row:span 2">✓</button>
+
+      <button class="np-key digit" onclick="numpadKey('0')">0</button>
+      <button class="np-key zero3" onclick="numpadKey('000')">000</button>
+      <button class="np-key digit" onclick="numpadKey('.')">.</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
