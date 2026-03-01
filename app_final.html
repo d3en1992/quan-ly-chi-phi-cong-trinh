@@ -29,14 +29,25 @@
 body { font-family: 'IBM Plex Sans', sans-serif; background: var(--bg); color: var(--ink); font-size: 13px; line-height: 1.5; }
 
 .topbar {
-  background: var(--ink); color: #fff; padding: 0 24px; height: 52px;
-  display: flex; align-items: center; justify-content: space-between;
+  background: var(--ink); color: #fff;
   position: sticky; top: 0; z-index: 100;
+  display: flex; flex-direction: column;
 }
-.topbar-left { display: flex; align-items: center; gap: 16px; }
-.app-name { font-size: 15px; font-weight: 700; letter-spacing: -0.3px; display: flex; align-items: center; gap: 8px; }
+/* Hàng 1: Logo + stats + Cloud */
+.topbar-row1 {
+  display: flex; align-items: center; gap: 12px;
+  padding: 0 20px; height: 48px; flex-shrink: 0;
+}
+.app-name { font-size: 15px; font-weight: 700; letter-spacing: -0.3px; display: flex; align-items: center; gap: 8px; margin-right: auto; }
 .app-name span { color: #f0b429; }
-.topbar-nav { display: flex; gap: 2px; }
+/* Hàng 2: Nav tabs */
+.topbar-nav {
+  display: flex; gap: 0; overflow-x: auto;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  padding: 0 12px; scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.topbar-nav::-webkit-scrollbar { display: none; }
 .nav-btn {
   padding: 6px 14px; border: none; background: transparent; color: rgba(255,255,255,0.55);
   font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; font-weight: 500;
@@ -44,8 +55,9 @@ body { font-family: 'IBM Plex Sans', sans-serif; background: var(--bg); color: v
 }
 .nav-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
 .nav-btn.active { background: rgba(255,255,255,0.15); color: #fff; font-weight: 600; }
-.topbar-right { display: flex; align-items: center; gap: 8px; }
-.top-stat {
+.app-name { font-size: 15px; font-weight: 700; letter-spacing: -0.3px; display: flex; align-items: center; gap: 8px; }
+.app-name span { color: #f0b429; }
+.topbar-nav { display: flex; gap: 2px; }
   display: flex; align-items: center; gap: 6px; padding: 4px 12px;
   background: rgba(255,255,255,0.08); border-radius: 6px; font-size: 12px;
 }
@@ -265,6 +277,107 @@ select.cell-input {
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--line2); border-radius: 3px; }
+@media (max-width: 768px) {
+  /* ── Topbar mobile ── */
+  .topbar-row1 { padding: 0 12px; height: 44px; gap: 8px; }
+  .app-name { font-size: 13px; }
+  .top-stat { padding: 3px 8px; }
+  .top-stat-label { font-size: 10px; }
+  .top-stat-val { font-size: 11px; }
+  #jb-btn { font-size: 11px; padding: 5px 10px; }
+  .nav-btn {
+    font-size: 11px; padding: 8px 11px; white-space: nowrap;
+    flex-shrink: 0; border-radius: 0;
+    border-bottom: 2px solid transparent; color: rgba(255,255,255,0.6);
+  }
+  .nav-btn:hover { background: rgba(255,255,255,0.08); color: #fff; }
+  .nav-btn.active {
+    background: transparent; color: #fff; font-weight: 700;
+    border-bottom: 2px solid #f0b429;
+  }
+
+  /* ════════════════════════════════════
+     CONTENT
+  ════════════════════════════════════ */
+  .content { padding: 10px 10px 20px; }
+
+  .section-header { flex-direction: column; align-items: flex-start; gap: 8px; margin-bottom: 10px; }
+  .section-title { font-size: 14px; }
+  .section-header .btn-group { flex-wrap: wrap; gap: 5px; }
+  .btn { font-size: 12px; padding: 6px 11px; }
+  .btn-sm { font-size: 11px; padding: 5px 9px; }
+
+  /* Entry date bar */
+  .entry-date-bar { gap: 8px; padding: 10px 12px; }
+  .bare-select { min-width: 0; width: 100%; font-size: 12px; }
+
+  /* Save bar */
+  .save-bar { flex-direction: column; gap: 6px; align-items: stretch; padding: 10px 12px; }
+  .save-bar-info { gap: 12px; font-size: 12px; flex-wrap: wrap; }
+  .save-bar .btn { width: 100%; justify-content: center; }
+
+  /* ════════════════════════════════════
+     BẢNG TẤT CẢ CP
+  ════════════════════════════════════ */
+  .hide-mobile { display: none !important; }
+  /* Ẩn cột Người TH, NCC */
+  #all-table thead tr th:nth-child(4),
+  #all-table thead tr th:nth-child(5),
+  #all-tbody tr td:nth-child(4),
+  #all-tbody tr td:nth-child(5) { display: none; }
+  /* Cột ngày */
+  #all-tbody tr td:nth-child(1) { font-size: 10px; padding: 7px 6px; white-space: nowrap; }
+  /* Cột công trình */
+  #all-tbody tr td:nth-child(2) {
+    max-width: 100px; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap; font-size: 11px;
+  }
+  /* Cột loại */
+  #all-tbody tr td:nth-child(3) { padding: 7px 6px; }
+  .tag { font-size: 10px; padding: 2px 6px; }
+  /* Cột nội dung */
+  #all-tbody tr td:nth-child(6) { max-width: 80px; font-size: 11px; }
+  /* Cột tiền */
+  .amount-td { font-size: 11px; padding: 7px 6px !important; }
+  /* Cột nút */
+  #all-tbody tr td:last-child { padding: 4px; white-space: nowrap; }
+  #all-tbody tr td:last-child .btn-sm { padding: 4px 6px; font-size: 10px; }
+
+  /* ════════════════════════════════════
+     CT PAGE
+  ════════════════════════════════════ */
+  .ct-summary-grid { grid-template-columns: 1fr; gap: 10px; }
+  .ct-card-head { padding: 10px 12px; }
+  .ct-card-body { padding: 8px 12px; }
+  .ct-card-total { font-size: 13px; }
+
+  /* ════════════════════════════════════
+     SETTINGS / DANH MỤC
+  ════════════════════════════════════ */
+  .settings-grid { grid-template-columns: 1fr; gap: 12px; }
+
+  /* ════════════════════════════════════
+     MODAL
+  ════════════════════════════════════ */
+  .overlay { padding: 10px; align-items: flex-end; }
+  .modal {
+    max-width: 100%; max-height: 90vh; border-radius: 12px 12px 0 0;
+    transform: translateY(20px);
+  }
+  .overlay.open .modal { transform: translateY(0); }
+  .modal-body { padding: 14px; }
+
+  /* ════════════════════════════════════
+     TOAST
+  ════════════════════════════════════ */
+  .toast { bottom: 12px; right: 10px; left: 10px; font-size: 12px; padding: 10px 14px; }
+
+  /* ════════════════════════════════════
+     CHẤM CÔNG — CC date bar xếp wrap
+  ════════════════════════════════════ */
+  #page-chamcong .entry-date-bar { flex-wrap: wrap; gap: 6px; }
+  #page-chamcong .btn-group { flex-wrap: wrap; }
+}
 </style>
 </head>
 <body>
@@ -281,22 +394,28 @@ select.cell-input {
 </div>
 
 <div class="topbar">
-  <div class="topbar-left">
+  <!-- Hàng 1: Logo + Năm + Tổng CP + Cloud -->
+  <div class="topbar-row1">
     <div class="app-name">🏗️ Chi Phí <span>Công Trình</span></div>
-    <nav class="topbar-nav">
-      <button class="nav-btn active" data-page="nhap" onclick="goPage(this,'nhap')">Nhập Hóa Đơn</button>
-      <button class="nav-btn" data-page="tatca" onclick="goPage(this,'tatca')">Tất Cả CP</button>
-      <button class="nav-btn" data-page="chamcong" onclick="goPage(this,'chamcong')">📅 Chấm Công Tuần</button>
-      <button class="nav-btn" data-page="nhapung" onclick="goPage(this,'nhapung')">💰 Tiền Ứng TP/NCC</button>
-      <button class="nav-btn" data-page="ct" onclick="goPage(this,'ct')">Tổng CP Công Trình</button>
-      <button class="nav-btn" data-page="danhmuc" onclick="goPage(this,'danhmuc')">⚙ Danh Mục</button>
-    </nav>
-  </div>
-  <div class="topbar-right">
-    <div class="top-stat"><span class="top-stat-label">Tổng HĐ</span><span class="top-stat-val" id="top-cnt">0</span></div>
-    <div class="top-stat"><span class="top-stat-label">Tổng chi phí</span><span class="top-stat-val" id="top-total">0đ</span></div>
+    <div style="display:flex;align-items:center;gap:6px">
+      <span style="font-size:11px;color:rgba(255,255,255,0.5);font-weight:600;text-transform:uppercase;letter-spacing:.5px">Năm</span>
+      <select id="global-year" onchange="onYearChange()"
+        style="background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.25);color:#f0b429;border-radius:6px;padding:4px 8px;font-size:13px;font-weight:700;font-family:'IBM Plex Sans',sans-serif;cursor:pointer;outline:none">
+      </select>
+    </div>
+    <div class="top-stat"><span class="top-stat-label">Tổng CP</span><span class="top-stat-val" id="top-total">0đ</span></div>
     <button id="jb-btn" onclick="openBinModal()" style="background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.25);color:#fff;border-radius:7px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:'IBM Plex Sans',sans-serif;white-space:nowrap;transition:all .2s">☁️ Cloud</button>
   </div>
+  <!-- Hàng 2: Nav tabs -->
+  <nav class="topbar-nav">
+    <button class="nav-btn active" data-page="nhap" onclick="goPage(this,'nhap')">Nhập HĐ</button>
+    <button class="nav-btn" data-page="tatca" onclick="goPage(this,'tatca')">Tất Cả CP</button>
+    <button class="nav-btn" data-page="chamcong" onclick="goPage(this,'chamcong')">📅 Chấm Công</button>
+    <button class="nav-btn" data-page="nhapung" onclick="goPage(this,'nhapung')">💰 Tiền Ứng</button>
+    <button class="nav-btn" data-page="ct" onclick="goPage(this,'ct')">Tổng CP CT</button>
+    <button class="nav-btn" data-page="thietbi" onclick="goPage(this,'thietbi')">🔧 Theo dõi TB</button>
+    <button class="nav-btn" data-page="danhmuc" onclick="goPage(this,'danhmuc')">⚙ Danh Mục</button>
+  </nav>
 </div>
 
 <div class="content">
@@ -348,7 +467,7 @@ select.cell-input {
         <span>Dòng có dữ liệu: <strong id="row-count">0</strong></span>
         <span>Tổng thành tiền: <span class="hi" id="entry-total">0 đ</span></span>
       </div>
-      <button class="btn btn-green" onclick="saveAllRows()">💾 Lưu tất cả hóa đơn</button>
+      <button class="btn btn-green" onclick="saveAllRows()">💾 Cập Nhật</button>
     </div>
   </div>
 
@@ -366,6 +485,87 @@ select.cell-input {
       </div>
     </div>
     <div id="ct-grid" class="ct-summary-grid"></div>
+  </div>
+
+  <!-- PAGE: THEO DÕI THIẾT BỊ -->
+  <div class="page" id="page-thietbi">
+
+    <!-- Bảng 1: Nhập thiết bị -->
+    <div class="section-header">
+      <div class="section-title"><span class="dot"></span>Nhập Máy Móc, Thiết Bị, Giàn Giáo</div>
+      <div class="btn-group">
+        <button class="btn btn-outline btn-sm" onclick="tbClearRows()">🗑 Xóa bảng</button>
+        <button class="btn btn-green btn-sm" onclick="tbSave()">💾 Lưu thiết bị</button>
+      </div>
+    </div>
+
+    <div class="entry-date-bar" style="flex-wrap:wrap;gap:10px">
+      <span class="bar-label">Công Trình</span>
+      <select id="tb-ct-sel" class="bare-select" style="min-width:260px;font-size:13px">
+        <option value="">-- Chọn công trình --</option>
+      </select>
+    </div>
+
+    <div class="entry-table-wrap">
+      <div class="table-scroll">
+        <table class="entry-table" style="min-width:900px">
+          <thead>
+            <tr>
+              <th class="col-num">#</th>
+              <th style="min-width:200px">Tên Máy / Thiết Bị / Giàn Giáo</th>
+              <th style="width:90px;text-align:center">Số Lượng</th>
+              <th style="width:180px">Tình Trạng</th>
+              <th style="width:130px">Người TH</th>
+              <th style="min-width:180px">Ghi Chú</th>
+              <th class="col-del"></th>
+            </tr>
+          </thead>
+          <tbody id="tb-tbody"></tbody>
+        </table>
+      </div>
+      <div class="add-row-bar">
+        <button class="btn btn-outline btn-sm" onclick="tbAddRows(1)">+ 1 dòng</button>
+        <button class="btn btn-outline btn-sm" onclick="tbAddRows(5)">+ 5 dòng</button>
+        <span style="font-size:11px;color:var(--ink3);margin-left:8px">Mặc định tình trạng: Đang hoạt động</span>
+      </div>
+    </div>
+
+    <!-- Bảng 2: Danh sách thiết bị đã lưu -->
+    <div class="section-header" style="margin-top:28px">
+      <div class="section-title"><span class="dot"></span>Danh Sách Thiết Bị Tại Công Trình</div>
+      <div class="btn-group">
+        <select class="filter-sel" id="tb-filter-ct" onchange="tbRenderList()"><option value="">Tất cả công trình</option></select>
+        <select class="filter-sel" id="tb-filter-tt" onchange="tbRenderList()">
+          <option value="">Tất cả tình trạng</option>
+          <option value="Đang hoạt động">Đang hoạt động</option>
+          <option value="Hoạt động lâu">Hoạt động lâu</option>
+          <option value="Cần sửa chữa">Cần sửa chữa</option>
+        </select>
+        <button class="btn btn-outline btn-sm" onclick="tbExportCSV()">⬇ Xuất CSV</button>
+      </div>
+    </div>
+
+    <div class="records-wrap">
+      <div style="overflow-x:auto">
+        <table class="records-table" id="tb-list-table">
+          <thead>
+            <tr>
+              <th>Công Trình</th>
+              <th>Tên Thiết Bị</th>
+              <th style="text-align:center">Số Lượng</th>
+              <th>Tình Trạng</th>
+              <th>Người TH</th>
+              <th>Ghi Chú</th>
+              <th>Cập Nhật</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tb-list-tbody"></tbody>
+        </table>
+      </div>
+      <div class="pagination" id="tb-pagination"></div>
+    </div>
+
   </div>
 
   <!-- PAGE: TẤT CẢ -->
@@ -398,6 +598,30 @@ select.cell-input {
         </table>
       </div>
       <div class="pagination" id="pagination"></div>
+    </div>
+
+    <!-- Thùng rác — HĐ đã xóa -->
+    <div style="margin-top:24px">
+      <div class="section-header">
+        <div class="section-title" style="font-size:14px"><span class="dot"></span>🗑 Hóa Đơn / Chi Phí Đã Xóa</div>
+        <div class="btn-group">
+          <button class="btn btn-outline btn-sm" onclick="trashClearAll()" style="color:var(--red)">🗑 Xóa vĩnh viễn tất cả</button>
+        </div>
+      </div>
+      <div class="records-wrap" id="trash-wrap" style="display:none">
+        <div style="overflow-x:auto">
+          <table class="records-table">
+            <thead><tr>
+              <th>Ngày</th><th>Công Trình</th><th>Loại</th>
+              <th>Nội Dung</th><th style="text-align:right">Số Tiền</th><th></th>
+            </tr></thead>
+            <tbody id="trash-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div id="trash-empty" style="text-align:center;padding:20px;color:var(--ink3);font-size:13px;background:var(--paper);border:1px solid var(--line);border-radius:8px">
+        Chưa có hóa đơn nào bị xóa
+      </div>
     </div>
   </div>
 
@@ -504,7 +728,9 @@ select.cell-input {
       <div class="section-title"><span class="dot"></span>Sổ Chấm Công</div>
       <div class="btn-group">
         <button class="btn btn-outline btn-sm" onclick="clearCCWeek()">🗑 Xóa bảng</button>
-        <button class="btn btn-outline btn-sm" onclick="exportCCWeekCSV()">⬇ CSV tuần này</button>
+        <button class="btn btn-outline btn-sm" onclick="exportCCWeekCSV()">⬇ CSV</button>
+        <button class="btn btn-outline btn-sm" id="cc-copy-btn" onclick="copyCCWeek()" title="Copy toàn bộ CN + ngày công + lương tuần này">📋 Copy tuần</button>
+        <button class="btn btn-outline btn-sm" id="cc-paste-btn" onclick="pasteCCWeek()" title="Dán toàn bộ CN + ngày công đã copy" style="display:none">📌 Dán</button>
         <button class="btn btn-green btn-sm" onclick="saveCCWeek()">💾 Lưu tuần này</button>
       </div>
     </div>
@@ -551,6 +777,37 @@ select.cell-input {
       </div>
     </div>
 
+    <!-- Tổng Lương Tuần (theo tên CN) — đưa lên TRÊN lịch sử -->
+    <div style="margin-top:20px">
+      <div class="section-header">
+        <div class="section-title" style="font-size:14px"><span class="dot"></span>Tổng Lương Tuần (theo Công Nhân)</div>
+        <div class="btn-group">
+          <select class="filter-sel" id="cc-tlt-ct" onchange="ccTltPage=1;renderCCTLT()"><option value="">Tất cả CT</option></select>
+          <select class="filter-sel" id="cc-tlt-week" onchange="ccTltPage=1;renderCCTLT()"><option value="">Tất cả tuần</option></select>
+          <button class="btn btn-outline btn-sm" onclick="exportCCTLTCSV()">⬇ Xuất CSV</button>
+        </div>
+      </div>
+      <div class="records-wrap">
+        <div style="overflow-x:auto">
+          <table class="records-table">
+            <thead><tr>
+              <th>Tuần</th><th>Tên CN</th>
+              <th style="text-align:center">CN</th><th style="text-align:center">T2</th>
+              <th style="text-align:center">T3</th><th style="text-align:center">T4</th>
+              <th style="text-align:center">T5</th><th style="text-align:center">T6</th>
+              <th style="text-align:center">T7</th>
+              <th style="text-align:center">TC</th>
+              <th style="text-align:right">TC Lương</th>
+              <th style="text-align:right">Lương TB/Ngày</th>
+              <th>Công Trình</th>
+            </tr></thead>
+            <tbody id="cc-tlt-tbody"></tbody>
+          </table>
+        </div>
+        <div class="pagination" id="cc-tlt-pagination"></div>
+      </div>
+    </div>
+
     <!-- Lịch sử chấm công TUẦN -->
     <div style="margin-top:20px">
       <div class="section-header">
@@ -583,36 +840,6 @@ select.cell-input {
           </table>
         </div>
         <div class="pagination" id="cc-hist-pagination"></div>
-      </div>
-    </div>
-
-    <!-- Tổng Lương Tuần (theo tên CN) -->
-    <div style="margin-top:20px">
-      <div class="section-header">
-        <div class="section-title" style="font-size:14px"><span class="dot"></span>Tổng Lương Tuần (theo Công Nhân)</div>
-        <div class="btn-group">
-          <select class="filter-sel" id="cc-tlt-week" onchange="renderCCTLT()"><option value="">Tất cả tuần</option></select>
-          <button class="btn btn-outline btn-sm" onclick="exportCCTLTCSV()">⬇ Xuất CSV</button>
-        </div>
-      </div>
-      <div class="records-wrap">
-        <div style="overflow-x:auto">
-          <table class="records-table">
-            <thead><tr>
-              <th>Tuần</th><th>Tên CN</th>
-              <th style="text-align:center">CN</th><th style="text-align:center">T2</th>
-              <th style="text-align:center">T3</th><th style="text-align:center">T4</th>
-              <th style="text-align:center">T5</th><th style="text-align:center">T6</th>
-              <th style="text-align:center">T7</th>
-              <th style="text-align:center">TC</th>
-              <th style="text-align:right">TC Lương</th>
-              <th style="text-align:right">Lương TB/Ngày</th>
-              <th>Công Trình</th>
-            </tr></thead>
-            <tbody id="cc-tlt-tbody"></tbody>
-          </table>
-        </div>
-        <div class="pagination" id="cc-tlt-pagination"></div>
       </div>
     </div>
 
@@ -673,7 +900,7 @@ function save(k, v) {
 
 function jbAllData() {
   return {
-    inv_v3: load('inv_v3',[]), ung_v1: load('ung_v1',[]), cc_v2: load('cc_v2',[]),
+    inv_v3: load('inv_v3',[]), ung_v1: load('ung_v1',[]), cc_v2: load('cc_v2',[]), tb_v1: load('tb_v1',[]),
     cats: {
       congTrinh: load('cat_ct', DEFAULTS.congTrinh),
       loaiChiPhi: load('cat_loai', DEFAULTS.loaiChiPhi),
@@ -734,6 +961,7 @@ function gsLoadAll(callback) {
     if (data.inv_v3) localStorage.setItem('inv_v3', JSON.stringify(data.inv_v3));
     if (data.ung_v1) localStorage.setItem('ung_v1', JSON.stringify(data.ung_v1));
     if (data.cc_v2)  localStorage.setItem('cc_v2',  JSON.stringify(data.cc_v2));
+    if (data.tb_v1)  localStorage.setItem('tb_v1',  JSON.stringify(data.tb_v1));
     if (data.cats) {
       const ct = data.cats;
       if (ct.congTrinh)  localStorage.setItem('cat_ct',   JSON.stringify(ct.congTrinh));
@@ -860,6 +1088,7 @@ function reloadFromCloud() {
     invoices   = load('inv_v3', []);
     ungRecords = load('ung_v1', []);
     ccData     = load('cc_v2', []);
+    tbData     = load('tb_v1', []);
     cats.congTrinh  = load('cat_ct',    DEFAULTS.congTrinh);
     cats.loaiChiPhi = load('cat_loai',  DEFAULTS.loaiChiPhi);
     cats.nhaCungCap = load('cat_ncc',   DEFAULTS.nhaCungCap);
@@ -918,24 +1147,25 @@ function init() {
   updateTop();
   updateJbBtn();
 
+  buildYearSelect();
+  renderTrash();
+
   // Tải dữ liệu mới nhất từ cloud (nếu đã có Bin ID)
   gsLoadAll(function(data) {
     if (!data) return;
     invoices    = load('inv_v3', []);
     ungRecords  = load('ung_v1', []);
     ccData      = load('cc_v2', []);
+    tbData      = load('tb_v1', []);
     cats.congTrinh  = load('cat_ct',    DEFAULTS.congTrinh);
     cats.loaiChiPhi = load('cat_loai',  DEFAULTS.loaiChiPhi);
     cats.nhaCungCap = load('cat_ncc',   DEFAULTS.nhaCungCap);
     cats.nguoiTH    = load('cat_nguoi', DEFAULTS.nguoiTH);
-    updateTop();
-    rebuildEntrySelects();
-    rebuildCCNameList();
-    populateCCCtSel();
+    buildYearSelect(); updateTop();
+    rebuildEntrySelects(); rebuildCCNameList(); populateCCCtSel();
     initTable(10); initUngTable(8); initCC();
     const built2 = rebuildInvoicesFromCC();
-    updateTop(); rebuildEntrySelects(); rebuildCCNameList(); populateCCCtSel();
-    initTable(10); initUngTable(8); initCC();
+    updateTop();
     toast(`✅ Đồng bộ xong! ${built2.weeks} HĐ nhân công, ${built2.cts} CT mới`, 'success');
   });
 }
@@ -955,7 +1185,8 @@ function goPage(btn, id) {
   if (id==='tatca') { buildFilters(); filterAndRender(); }
   if (id==='danhmuc') renderSettings();
   if (id==='nhapung') { initUngTableIfEmpty(); buildUngFilters(); filterAndRenderUng(); }
-  if (id==='chamcong') { renderCC(); renderCCHistory(); }
+  if (id==='chamcong') { populateCCCtSel(); rebuildCCNameList(); renderCCHistory(); renderCCTLT(); }
+  if (id==='thietbi') { tbPopulateSels(); tbBuildRows(8); tbRenderList(); }
 }
 
 // ══════════════════════════════
@@ -1053,28 +1284,37 @@ function clearTable() {
 function saveAllRows() {
   const date = document.getElementById('entry-date').value;
   if(!date) { toast('Vui lòng chọn ngày!','error'); return; }
-  let saved=0, errRow=0;
+  let saved=0, updated=0, errRow=0;
   document.querySelectorAll('#entry-tbody tr').forEach(tr => {
     const loai = (tr.querySelector('[data-f="loai"]')?.value||'').trim();
-    const ct = (tr.querySelector('[data-f="ct"]')?.value||'').trim();
+    const ct   = (tr.querySelector('[data-f="ct"]')?.value||'').trim();
     const tien = parseInt(tr.querySelector('[data-f="tien"]')?.dataset.raw||'0',10)||0;
     if(!loai&&!ct&&!tien) return;
     if(!ct||!loai) { errRow++; tr.style.background='#fdecea'; return; }
     tr.style.background='';
-    invoices.unshift({
-      id: Date.now()+Math.random(), ngay:date, congtrinh:ct, loai,
+    const editId = tr.dataset.editId;
+    const payload = {
+      ngay:date, congtrinh:ct, loai,
       nguoi:(tr.querySelector('[data-f="nguoi"]')?.value||'').trim(),
       ncc:(tr.querySelector('[data-f="ncc"]')?.value||'').trim(),
       nd:(tr.querySelector('[data-f="nd"]')?.value||'').trim(),
       tien, thanhtien: tien
-    });
-    saved++;
+    };
+    if (editId) {
+      // Chế độ CẬP NHẬT hóa đơn cũ
+      const idx = invoices.findIndex(i=>String(i.id)===String(editId));
+      if(idx>=0) { invoices[idx]={...invoices[idx],...payload}; updated++; }
+    } else {
+      invoices.unshift({id: Date.now()+Math.random(), ...payload});
+      saved++;
+    }
   });
-  if(errRow>0) { toast(`${errRow} dòng thiếu Công Trình hoặc Loại Chi Phí (đánh dấu đỏ)!`,'error'); return; }
-  if(saved===0) { toast('Không có dòng hợp lệ!','error'); return; }
+  if(errRow>0) { toast(`${errRow} dòng thiếu Công Trình hoặc Loại CP!`,'error'); return; }
+  if(saved+updated===0) { toast('Không có dòng hợp lệ!','error'); return; }
   save('inv_v3', invoices);
-  updateTop();
-  toast(`✅ Đã lưu ${saved} hóa đơn!`,'success');
+  buildYearSelect(); updateTop();
+  if(updated>0) toast(`✅ Đã cập nhật ${updated} hóa đơn!`,'success');
+  else toast(`✅ Đã lưu ${saved} hóa đơn!`,'success');
   initTable(10);
   document.getElementById('entry-date').value = today();
 }
@@ -1083,9 +1323,10 @@ function saveAllRows() {
 //  ALL PAGE
 // ══════════════════════════════
 function buildFilters() {
-  const cts = [...new Set(invoices.map(i=>i.congtrinh))].filter(Boolean).sort();
-  const loais = [...new Set(invoices.map(i=>i.loai))].filter(Boolean).sort();
-  const months = [...new Set(invoices.map(i=>i.ngay.slice(0,7)))].filter(Boolean).sort().reverse();
+  const yearInvs = invoices.filter(i=>inActiveYear(i.ngay));
+  const cts = [...new Set(yearInvs.map(i=>i.congtrinh))].filter(Boolean).sort();
+  const loais = [...new Set(yearInvs.map(i=>i.loai))].filter(Boolean).sort();
+  const months = [...new Set(yearInvs.map(i=>i.ngay?.slice(0,7)))].filter(Boolean).sort().reverse();
   const ctSel=document.getElementById('f-ct'); const cv=ctSel.value;
   ctSel.innerHTML='<option value="">Tất cả công trình</option>'+cts.map(c=>`<option ${c===cv?'selected':''} value="${x(c)}">${x(c)}</option>`).join('');
   const lSel=document.getElementById('f-loai'); const lv=lSel.value;
@@ -1101,6 +1342,7 @@ function filterAndRender() {
   const fLoai=document.getElementById('f-loai').value;
   const fMonth=document.getElementById('f-month').value;
   filteredInvs = invoices.filter(inv => {
+    if(!inActiveYear(inv.ngay)) return false;  // lọc năm
     if(fCt && inv.congtrinh!==fCt) return false;
     if(fLoai && inv.loai!==fLoai) return false;
     if(fMonth && !inv.ngay.startsWith(fMonth)) return false;
@@ -1119,16 +1361,21 @@ function renderTable() {
     tbody.innerHTML=`<tr class="empty-row"><td colspan="10">Không có hóa đơn nào</td></tr>`;
     document.getElementById('pagination').innerHTML=''; return;
   }
-  tbody.innerHTML = paged.map(inv=>`<tr>
+  tbody.innerHTML = paged.map(inv=>{
+    const isCCInv = !!inv.ccKey;
+    const editBtn = isCCInv
+      ? `<button class="btn btn-outline btn-sm" onclick="editCCInvoice(${JSON.stringify(String(inv.id))})" title="Sửa trong Chấm Công">✏️</button>`
+      : `<button class="btn btn-outline btn-sm" onclick="editManualInvoice(${JSON.stringify(String(inv.id))})" title="Sửa trong Nhập HĐ">✏️</button>`;
+    return `<tr>
     <td style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink2)">${inv.ngay}</td>
     <td style="font-weight:600;font-size:12px;max-width:220px">${x(inv.congtrinh)}</td>
     <td><span class="tag tag-gold">${x(inv.loai)}</span></td>
-    <td style="color:var(--ink2)">${x(inv.nguoi||'—')}</td>
-    <td style="color:var(--ink2)">${x(inv.ncc||'—')}</td>
-    <td style="color:var(--ink2);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${x(inv.nd)}">${x(inv.nd||'—')}</td>
+    <td class="hide-mobile" style="color:var(--ink2)">${x(inv.nguoi||'—')}</td>
+    <td class="hide-mobile" style="color:var(--ink2)">${x(inv.ncc||'—')}</td>
+    <td style="color:var(--ink2);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${x(inv.nd)}">${x(inv.nd||'—')}</td>
     <td class="amount-td">${numFmt(inv.tien||0)}</td>
-    <td><button class="btn btn-danger btn-sm" onclick="delInvoice('${inv.id}')">✕</button></td>
-  </tr>`).join('');
+    <td style="white-space:nowrap">${editBtn}<button class="btn btn-danger btn-sm" onclick="delInvoice('${inv.id}')">✕</button></td>
+  </tr>`;}).join('');
 
   const tp=Math.ceil(filteredInvs.length/PG);
   let pag=`<span>${filteredInvs.length} hóa đơn · Tổng: <strong style="color:var(--gold);font-family:'IBM Plex Mono',monospace">${fmtS(sumTT)}</strong></span>`;
@@ -1144,10 +1391,102 @@ function renderTable() {
 function goTo(p) { curPage=p; renderTable(); }
 
 function delInvoice(id) {
-  if(!confirm('Xóa hóa đơn này?')) return;
+  if(!confirm('Xóa hóa đơn này? (Có thể khôi phục từ Thùng Rác)')) return;
+  const inv=invoices.find(i=>String(i.id)===String(id));
+  if(inv) trashAdd({...inv});
   invoices=invoices.filter(i=>String(i.id)!==String(id));
-  save('inv_v3',invoices); updateTop(); buildFilters(); filterAndRender();
-  toast('Đã xóa hóa đơn');
+  save('inv_v3',invoices); updateTop(); buildFilters(); filterAndRender(); renderTrash();
+  toast('Đã xóa (có thể khôi phục trong Thùng Rác)');
+}
+function editCCInvoice(id) {
+  const inv=invoices.find(i=>String(i.id)===String(id));
+  if(!inv||!inv.ccKey) return;
+  const parts=inv.ccKey.split('|');
+  const fromDate=parts[1], ct=parts[2];
+
+  // 1. Chuyển tab — dùng goPage chuẩn
+  const navBtn=document.querySelector('.nav-btn[data-page="chamcong"]');
+  goPage(navBtn,'chamcong');
+  window.scrollTo({top:0,behavior:'smooth'});
+
+  // 2. Set tuần đúng (snap về CN của tuần đó)
+  const sunISO=snapToSunday(fromDate);
+  const satISO=ccSaturdayISO(sunISO);
+  document.getElementById('cc-from').value=sunISO;
+  document.getElementById('cc-to').value=satISO;
+  document.getElementById('cc-week-label').textContent='Tuần: '+weekLabel(sunISO);
+  // Tính lại offset
+  const thisSun=ccSundayISO(0);
+  const [ty,tm,td]=thisSun.split('-').map(Number);
+  const [fy,fm,fd]=sunISO.split('-').map(Number);
+  ccOffset=Math.round((new Date(fy,fm-1,fd)-new Date(ty,tm-1,td))/(7*86400000));
+
+  // 3. Set công trình và load bảng (sau khi goPage đã populate select)
+  setTimeout(()=>{
+    const ctSel=document.getElementById('cc-ct-sel');
+    if(ctSel){
+      if(![...ctSel.options].find(o=>o.value===ct)){
+        const o=document.createElement('option');o.value=ct;o.textContent=ct;ctSel.appendChild(o);
+      }
+      ctSel.value=ct;
+    }
+    loadCCWeekForm();
+    toast('✏️ Đang xem tuần '+viShort(sunISO)+' — '+ct,'success');
+  },50);
+}
+function editManualInvoice(id) {
+  const inv=invoices.find(i=>String(i.id)===String(id));
+  if(!inv) return;
+  // Chuyển sang tab Nhập HĐ
+  const navBtn=document.querySelector('.nav-btn[data-page="nhap"]');
+  goPage(navBtn,'nhap');
+  window.scrollTo({top:0,behavior:'smooth'});
+  setTimeout(()=>{
+    // Set ngày và clear bảng, tạo 1 hàng với dữ liệu HĐ cũ
+    document.getElementById('entry-date').value=inv.ngay||today();
+    document.getElementById('entry-tbody').innerHTML='';
+    addRow({loai:inv.loai,congtrinh:inv.congtrinh,nguoi:inv.nguoi||'',ncc:inv.ncc||'',nd:inv.nd||'',tien:inv.tien||0});
+    // Đánh dấu edit mode — saveAllRows sẽ UPDATE thay vì thêm mới
+    const row=document.querySelector('#entry-tbody tr');
+    if(row) row.dataset.editId=String(inv.id);
+    calcSummary();
+    toast('✏️ Chỉnh sửa rồi nhấn 💾 Cập Nhật','success');
+  },100);
+}
+function showEditInvoiceModal(inv) {
+  let ov=document.getElementById('edit-inv-overlay');
+  if(!ov){ov=document.createElement('div');ov.id='edit-inv-overlay';ov.style.cssText='position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px';ov.onclick=function(e){if(e.target===this)this.remove();};document.body.appendChild(ov);}
+  const ctOpts=cats.congTrinh.map(v=>`<option value="${x(v)}" ${v===inv.congtrinh?'selected':''}>${x(v)}</option>`).join('');
+  const loaiOpts=cats.loaiChiPhi.map(v=>`<option value="${x(v)}" ${v===inv.loai?'selected':''}>${x(v)}</option>`).join('');
+  ov.innerHTML=`<div style="background:#fff;border-radius:14px;padding:24px;width:min(480px,96vw);box-shadow:0 8px 32px rgba(0,0,0,.2);font-family:'IBM Plex Sans',sans-serif" onclick="event.stopPropagation()">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h3 style="font-size:16px;font-weight:700">✏️ Sửa Hóa Đơn</h3>
+      <button onclick="document.getElementById('edit-inv-overlay').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#888">✕</button>
+    </div>
+    <div style="display:grid;gap:10px">
+      <div><label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:3px">Ngày</label><input id="ei-ngay" type="date" value="${inv.ngay}" style="width:100%;padding:8px 10px;border:1.5px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px;outline:none"></div>
+      <div><label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:3px">Loại Chi Phí</label><select id="ei-loai" style="width:100%;padding:8px 10px;border:1.5px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px;outline:none"><option value="">-- Chọn --</option>${loaiOpts}</select></div>
+      <div><label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:3px">Công Trình</label><select id="ei-ct" style="width:100%;padding:8px 10px;border:1.5px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px;outline:none"><option value="">-- Chọn --</option>${ctOpts}</select></div>
+      <div><label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:3px">Người TH</label><input id="ei-nguoi" type="text" value="${x(inv.nguoi||'')}" list="ei-dl" style="width:100%;padding:8px 10px;border:1.5px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px;outline:none"><datalist id="ei-dl">${cats.nguoiTH.map(v=>`<option value="${x(v)}">`).join('')}</datalist></div>
+      <div><label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:3px">Nội Dung</label><input id="ei-nd" type="text" value="${x(inv.nd||'')}" style="width:100%;padding:8px 10px;border:1.5px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px;outline:none"></div>
+      <div><label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:3px">Số Tiền (đ)</label><input id="ei-tien" type="number" value="${inv.tien||0}" style="width:100%;padding:8px 10px;border:1.5px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px;outline:none"></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button onclick="document.getElementById('edit-inv-overlay').remove()" style="flex:1;padding:10px;border-radius:8px;border:1.5px solid #ddd;background:#fff;font-family:inherit;font-size:13px;cursor:pointer">Hủy</button>
+      <button onclick="saveEditInvoice('${inv.id}')" style="flex:2;padding:10px;border-radius:8px;border:none;background:#1a1814;color:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">💾 Cập Nhật</button>
+    </div>
+  </div>`;
+  ov.style.display='flex';
+}
+function saveEditInvoice(id) {
+  const idx=invoices.findIndex(i=>String(i.id)===String(id));
+  if(idx<0) return;
+  const tien=parseInt(document.getElementById('ei-tien').value)||0;
+  invoices[idx]={...invoices[idx],ngay:document.getElementById('ei-ngay').value,loai:document.getElementById('ei-loai').value,congtrinh:document.getElementById('ei-ct').value,nguoi:document.getElementById('ei-nguoi').value.trim(),nd:document.getElementById('ei-nd').value.trim(),tien,thanhtien:tien};
+  save('inv_v3',invoices);
+  document.getElementById('edit-inv-overlay').remove();
+  buildFilters(); filterAndRender(); updateTop();
+  toast('✅ Đã cập nhật hóa đơn!','success');
 }
 
 // ══════════════════════════════
@@ -1275,6 +1614,8 @@ function finishEdit(catId,idx) {
   }
   saveCats(catId); save('inv_v3',invoices); save('ung_v1',ungRecords);
   renderSettings(); updateTop();
+  // Cập nhật lại tab Tổng CP nếu đang đổi tên công trình
+  if (catId === 'congTrinh') { renderCtPage(); buildFilters(); filterAndRender(); }
   toast('✅ Đã cập nhật "'+newVal+'"','success');
 }
 function addItem(catId) {
@@ -1563,8 +1904,8 @@ function dlCSV(rows,name) {
 //  HELPERS
 // ══════════════════════════════
 function updateTop() {
-  document.getElementById('top-cnt').textContent=invoices.length;
-  document.getElementById('top-total').textContent=fmtS(invoices.reduce((s,i)=>s+(i.tien||i.thanhtien||0),0));
+  const total = invoices.filter(i=>inActiveYear(i.ngay)).reduce((s,i)=>s+(i.tien||i.thanhtien||0),0);
+  document.getElementById('top-total').textContent=fmtS(total);
 }
 function numFmt(n){ if(!n&&n!==0)return''; return parseInt(n,10).toLocaleString('vi-VN'); }
 function fmtM(n){ if(!n)return'0 đ'; return parseInt(n).toLocaleString('vi-VN')+' đ'; }
@@ -2077,12 +2418,10 @@ function saveCCWeek(){
 
   rebuildCCNameList();
   populateCCCtSel();
-  // Set filter về tuần vừa lưu trước khi build/render
+  // Chỉ cập nhật dropdown filter, KHÔNG render toàn bộ bảng lịch sử
   document.getElementById('cc-hist-week').value = fromDate;
   document.getElementById('cc-tlt-week').value  = fromDate;
   buildCCHistFilters();
-  renderCCHistory();
-  renderCCTLT();
   const msg=`✅ Đã lưu ${viShort(fromDate)}–${viShort(toDate)} [${ct}]`
     +(hdCount?` · ${hdCount} HĐ lẻ`:'')
     +(totalLuong>0?' · Nhân công cập nhật':'');
@@ -2092,6 +2431,31 @@ function saveCCWeek(){
 function clearCCWeek(){
   if(!confirm('Xóa bảng nhập tuần này?')) return;
   buildCCTable([]);
+}
+let ccClipboard=null;
+function copyCCWeek(){
+  const workers=[];
+  document.querySelectorAll('#cc-tbody tr:not(.cc-sum-row)').forEach(tr=>{
+    const name=tr.querySelector('[data-cc="name"]')?.value?.trim()||'';
+    const luong=parseInt(tr.querySelector('[data-cc="luong"]')?.dataset?.raw||0)||0;
+    const phucap=parseInt(tr.querySelector('[data-cc="phucap"]')?.dataset?.raw||0)||0;
+    const hdmuale=parseInt(tr.querySelector('[data-cc="hdml"]')?.dataset?.raw||0)||0;
+    const nd=tr.querySelector('[data-cc="nd"]')?.value?.trim()||'';
+    const d=[];
+    for(let i=0;i<7;i++) d.push(parseFloat(tr.querySelector(`[data-cc="d${i}"]`)?.value||0)||0);
+    if(name||luong>0||d.some(v=>v>0)) workers.push({name,luong,d,phucap,hdmuale,nd});
+  });
+  if(!workers.length){toast('Bảng trống, chưa có gì để copy!','error');return;}
+  ccClipboard=workers;
+  document.getElementById('cc-paste-btn').style.display='';
+  const tc=workers.reduce((s,w)=>s+w.d.reduce((a,v)=>a+v,0),0);
+  toast('📋 Đã copy '+workers.length+' công nhân ('+tc+' công) — nhấn Dán để áp dụng!','success');
+}
+function pasteCCWeek(){
+  if(!ccClipboard||!ccClipboard.length){toast('Chưa copy tuần nào!','error');return;}
+  // Dán toàn bộ: tên, lương, ngày công, phụ cấp, HĐ lẻ, nội dung
+  buildCCTable(ccClipboard.map(w=>({...w})));
+  toast('📌 Đã dán '+ccClipboard.length+' công nhân đầy đủ ngày công!','success');
 }
 
 // ─── CT selector ──────────────────────────────────────────────────
@@ -2109,9 +2473,10 @@ function onCCCtSelChange(){
 
 // ─── history (per week) ───────────────────────────────────────────
 function buildCCHistFilters(){
-  const allCts=[...new Set(ccData.map(w=>w.ct).filter(Boolean))].sort();
-  // weeks list
-  const allWeeks=[...new Set(ccData.map(w=>w.fromDate))].sort().reverse();
+  const yearCC=ccData.filter(w=>inActiveYear(w.fromDate));
+  const allCts=[...new Set(yearCC.map(w=>w.ct).filter(Boolean))].sort();
+  // weeks list — chỉ năm đang chọn
+  const allWeeks=[...new Set(yearCC.map(w=>w.fromDate))].sort().reverse();
 
   const ctSel=document.getElementById('cc-hist-ct'); const cv=ctSel.value;
   ctSel.innerHTML='<option value="">Tất cả CT</option>'+allCts.map(c=>`<option ${c===cv?'selected':''} value="${x(c)}">${x(c)}</option>`).join('');
@@ -2122,6 +2487,12 @@ function buildCCHistFilters(){
   // also update TLT week filter
   const tltSel=document.getElementById('cc-tlt-week'); const tv=tltSel.value;
   tltSel.innerHTML='<option value="">Tất cả tuần</option>'+allWeeks.map(w=>`<option ${w===tv?'selected':''} value="${w}">${weekLabel(w)}</option>`).join('');
+
+  // Cập nhật dropdown CT cho TLT
+  const tltCtSel=document.getElementById('cc-tlt-ct');
+  if(tltCtSel){ const tcv=tltCtSel.value;
+    tltCtSel.innerHTML='<option value="">Tất cả CT</option>'+allCts.map(ct=>`<option ${ct===tcv?'selected':''} value="${x(ct)}">${x(ct)}</option>`).join('');
+  }
 }
 
 function renderCCHistory(){
@@ -2131,6 +2502,7 @@ function renderCCHistory(){
 
   let rows=[];
   ccData.forEach(w=>{
+    if(!inActiveYear(w.fromDate)) return;  // lọc năm
     if(fCt&&w.ct!==fCt) return;
     if(fWk&&w.fromDate!==fWk) return;
     w.workers.forEach(wk=>{
@@ -2190,10 +2562,13 @@ function ccHistGoTo(p){ ccHistPage=p; renderCCHistory(); }
 function renderCCTLT(){
   buildCCHistFilters();
   const fWk=document.getElementById('cc-tlt-week').value;
+  const fCt2=document.getElementById('cc-tlt-ct')?.value||'';
 
   // Group by (fromDate, name) — accumulate day-by-day across CT
   const map={};
   ccData.forEach(w=>{
+    if(!inActiveYear(w.fromDate)) return;  // lọc năm
+    if(fCt2&&w.ct!==fCt2) return;
     if(fWk&&w.fromDate!==fWk) return;
     w.workers.forEach(wk=>{
       const key=w.fromDate+'|'+wk.name;
@@ -2245,8 +2620,11 @@ function renderCCTLT(){
 
 function exportCCTLTCSV(){
   const fWk=document.getElementById('cc-tlt-week').value;
+  const fCt2=document.getElementById('cc-tlt-ct')?.value||'';
   const map={};
   ccData.forEach(w=>{
+    if(!inActiveYear(w.fromDate)) return;
+    if(fCt2&&w.ct!==fCt2) return;
     if(fWk&&w.fromDate!==fWk) return;
     w.workers.forEach(wk=>{
       const key=w.fromDate+'|'+wk.name;
@@ -2332,7 +2710,424 @@ function exportCCHistCSV(){
   dlCSV(rows,'lich_su_cham_cong_'+label+'_'+today()+'.csv');
 }
 
+// ══════════════════════════════════════════════════════════════════
+//  BỘ LỌC NĂM TOÀN CỤC
+// ══════════════════════════════════════════════════════════════════
+let activeYear = new Date().getFullYear();
+
+function buildYearSelect() {
+  const years = new Set();
+  years.add(new Date().getFullYear());
+  invoices.forEach(i=>{ if(i.ngay) years.add(parseInt(i.ngay.split('-')[0])); });
+  ungRecords.forEach(u=>{ if(u.ngay) years.add(parseInt(u.ngay.split('-')[0])); });
+  ccData.forEach(w=>{ if(w.fromDate) years.add(parseInt(w.fromDate.split('-')[0])); });
+  const sorted=[...years].sort((a,b)=>b-a);
+  const sel=document.getElementById('global-year');
+  if(!sel) return;
+  sel.innerHTML=sorted.map(y=>`<option value="${y}" ${y===activeYear?'selected':''}>${y}</option>`).join('');
+}
+
+function onYearChange() {
+  const sel=document.getElementById('global-year');
+  if(sel) activeYear=parseInt(sel.value);
+  // Refresh các tab hiện tại
+  const activePage=document.querySelector('.page.active');
+  if(!activePage) return;
+  const pid=activePage.id.replace('page-','');
+  if(pid==='tatca') { buildFilters(); filterAndRender(); renderTrash(); }
+  if(pid==='chamcong') { renderCCHistory(); renderCCTLT(); }
+  if(pid==='nhapung') { buildUngFilters(); filterAndRenderUng(); }
+  if(pid==='ct') renderCtPage();
+  updateTop();
+}
+
+// ── Lọc năm helper ────────────────────────────────────────────────
+function inActiveYear(dateStr) {
+  if(!dateStr) return false;
+  return parseInt(dateStr.split('-')[0])===activeYear;
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  THÙNG RÁC (Hóa Đơn Đã Xóa)
+// ══════════════════════════════════════════════════════════════════
+let trash = load('trash_v1', []);
+
+function trashAdd(inv) {
+  inv._deletedAt = new Date().toISOString();
+  trash.unshift(inv);
+  // Giữ tối đa 200 HĐ trong thùng rác
+  if(trash.length>200) trash=trash.slice(0,200);
+  localStorage.setItem('trash_v1', JSON.stringify(trash));
+}
+
+function trashRestore(id) {
+  const idx=trash.findIndex(i=>String(i.id)===String(id));
+  if(idx<0) return;
+  const inv={...trash[idx]};
+  delete inv._deletedAt;
+  invoices.unshift(inv);
+  trash.splice(idx,1);
+  save('inv_v3',invoices);
+  localStorage.setItem('trash_v1',JSON.stringify(trash));
+  updateTop(); buildFilters(); filterAndRender(); renderTrash();
+  toast('✅ Đã khôi phục hóa đơn!','success');
+}
+
+function trashDeletePermanent(id) {
+  trash=trash.filter(i=>String(i.id)!==String(id));
+  localStorage.setItem('trash_v1',JSON.stringify(trash));
+  renderTrash();
+  toast('Đã xóa vĩnh viễn','success');
+}
+
+function trashClearAll() {
+  if(!trash.length) return;
+  if(!confirm(`Xóa vĩnh viễn ${trash.length} hóa đơn trong thùng rác?\nKhông thể khôi phục!`)) return;
+  trash=[];
+  localStorage.setItem('trash_v1',JSON.stringify(trash));
+  renderTrash();
+  toast('Đã xóa toàn bộ thùng rác','success');
+}
+
+function renderTrash() {
+  const wrap=document.getElementById('trash-wrap');
+  const empty=document.getElementById('trash-empty');
+  const tbody=document.getElementById('trash-tbody');
+  if(!wrap||!tbody||!empty) return;
+  if(!trash.length) {
+    wrap.style.display='none'; empty.style.display='';
+    return;
+  }
+  wrap.style.display=''; empty.style.display='none';
+  tbody.innerHTML=trash.slice(0,100).map(inv=>`<tr>
+    <td style="font-size:11px;color:var(--ink2);white-space:nowrap;font-family:'IBM Plex Mono',monospace">${inv.ngay||''}</td>
+    <td style="font-size:12px;font-weight:600;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${x(inv.congtrinh||'—')}</td>
+    <td><span class="tag tag-gold">${x(inv.loai||'—')}</span></td>
+    <td style="color:var(--ink2);font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${x(inv.nd||'—')}</td>
+    <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--green)">${numFmt(inv.tien||0)}</td>
+    <td style="white-space:nowrap;display:flex;gap:4px;padding:5px 4px">
+      <button class="btn btn-outline btn-sm" onclick="trashRestore('${inv.id}')" title="Khôi phục">↩ Khôi phục</button>
+      <button class="btn btn-danger btn-sm" onclick="trashDeletePermanent('${inv.id}')" title="Xóa vĩnh viễn">✕</button>
+    </td>
+  </tr>`).join('');
+}
+
 init();
+
+// ══════════════════════════════════════════════════════════════════
+//  THEO DÕI THIẾT BỊ (tb_v1)
+// ══════════════════════════════════════════════════════════════════
+const TB_TINH_TRANG = ['Đang hoạt động', 'Hoạt động lâu', 'Cần sửa chữa'];
+const TB_TEN_MAY = [
+  'Máy cắt cầm tay', 'Máy cắt bàn', 'Máy uốn sắt lớn', 'Bàn uốn sắt',
+  'Thước nhôm', 'Chân Dàn 1.7m', 'Chân Dàn 1.5m',
+  'Chéo lớn', 'Chéo nhỏ', 'Kít tăng giàn giáo', 'Cây chống tăng'
+];
+const TB_STATUS_STYLE = {
+  'Đang hoạt động': 'background:#e6f4ec;color:#1a7a45;',
+  'Hoạt động lâu':  'background:#fef3dc;color:#c8870a;',
+  'Cần sửa chữa':   'background:#fdecea;color:#c0392b;'
+};
+
+let tbData = load('tb_v1', []);
+
+// ── Populate selects ──────────────────────────────────────────────
+function tbPopulateSels() {
+  const allCts = [...new Set([...cats.congTrinh, ...tbData.map(r=>r.ct)].filter(Boolean))].sort();
+  const sel = document.getElementById('tb-ct-sel');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">-- Chọn công trình --</option>' +
+    allCts.map(v=>`<option value="${x(v)}" ${v===cur?'selected':''}>${x(v)}</option>`).join('');
+
+  const fSel = document.getElementById('tb-filter-ct');
+  const fCur = fSel.value;
+  fSel.innerHTML = '<option value="">Tất cả công trình</option>' +
+    allCts.map(v=>`<option value="${x(v)}" ${v===fCur?'selected':''}>${x(v)}</option>`).join('');
+}
+
+// ── Build nhập bảng ───────────────────────────────────────────────
+function tbBuildRows(n=8) {
+  const tbody = document.getElementById('tb-tbody');
+  tbody.innerHTML = '';
+  for (let i=0; i<n; i++) tbAddRow(null, i+1);
+}
+
+function tbAddRows(n) {
+  const tbody = document.getElementById('tb-tbody');
+  const cur = tbody.querySelectorAll('tr').length;
+  for (let i=0; i<n; i++) tbAddRow(null, cur+i+1);
+}
+
+function tbAddRow(data, num) {
+  const tbody = document.getElementById('tb-tbody');
+  const idx = num || (tbody.querySelectorAll('tr').length + 1);
+  const tr = document.createElement('tr');
+
+  const ttOpts = TB_TINH_TRANG.map(v =>
+    `<option value="${v}" ${data&&data.tinhtrang===v?'selected':v==='Đang hoạt động'&&!data?'selected':''}>${v}</option>`
+  ).join('');
+
+  const tenDl = `<datalist id="tb-ten-dl">${TB_TEN_MAY.map(n=>`<option value="${x(n)}">`).join('')}</datalist>`;
+
+  tr.innerHTML = `
+    <td class="row-num">${idx}</td>
+    <td style="padding:0">
+      <input class="cc-name-input" list="tb-ten-dl" data-tb="ten"
+        value="${x(data?.ten||'')}" placeholder="Nhập tên hoặc chọn..."
+        style="width:100%;border:none;background:transparent;padding:7px 10px;font-size:13px;font-family:'IBM Plex Sans',sans-serif;outline:none;color:var(--ink)">
+    </td>
+    <td style="padding:0">
+      <input type="number" data-tb="soluong" min="0" step="1"
+        value="${data?.soluong||''}" placeholder="0"
+        style="width:100%;border:none;background:transparent;padding:7px 8px;text-align:center;font-size:13px;font-family:'IBM Plex Mono',monospace;outline:none;color:var(--ink)">
+    </td>
+    <td style="padding:0">
+      <select data-tb="tinhtrang"
+        style="width:100%;border:none;background:transparent;padding:7px 8px;font-size:12px;font-family:'IBM Plex Sans',sans-serif;outline:none;color:var(--ink);cursor:pointer">
+        ${ttOpts}
+      </select>
+    </td>
+    <td style="padding:0">
+      <input class="cc-name-input" data-tb="nguoi" list="tb-nguoi-dl"
+        value="${x(data?.nguoi||'')}" placeholder="—"
+        style="width:100%;border:none;background:transparent;padding:7px 8px;font-size:12px;font-family:'IBM Plex Sans',sans-serif;outline:none;color:var(--ink)">
+    </td>
+    <td style="padding:0">
+      <input class="cc-name-input" data-tb="ghichu"
+        value="${x(data?.ghichu||'')}" placeholder="—"
+        style="width:100%;border:none;background:transparent;padding:7px 8px;font-size:12px;font-family:'IBM Plex Sans',sans-serif;outline:none;color:var(--ink)">
+    </td>
+    <td style="padding:3px 4px;text-align:center">
+      <button class="btn btn-danger btn-sm" onclick="this.closest('tr').remove();tbRenum()" title="Xóa dòng">✕</button>
+    </td>`;
+  tbody.appendChild(tr);
+
+  // Đảm bảo datalist tồn tại
+  if (!document.getElementById('tb-ten-dl')) {
+    document.body.insertAdjacentHTML('beforeend', tenDl);
+  }
+  // Datalist nguoi
+  if (!document.getElementById('tb-nguoi-dl')) {
+    const dl = document.createElement('datalist');
+    dl.id = 'tb-nguoi-dl';
+    dl.innerHTML = cats.nguoiTH.map(n=>`<option value="${x(n)}">`).join('');
+    document.body.appendChild(dl);
+  }
+}
+
+function tbRenum() {
+  document.querySelectorAll('#tb-tbody tr').forEach((tr,i) => {
+    const numCell = tr.querySelector('.row-num');
+    if (numCell) numCell.textContent = i+1;
+  });
+}
+
+function tbClearRows() {
+  if (!confirm('Xóa bảng nhập?')) return;
+  tbBuildRows();
+}
+
+// ── Lưu thiết bị ─────────────────────────────────────────────────
+function tbSave() {
+  const ct = document.getElementById('tb-ct-sel').value.trim();
+  if (!ct) { toast('Vui lòng chọn công trình!', 'error'); return; }
+
+  const rows = [];
+  const ngay = today();
+  document.querySelectorAll('#tb-tbody tr').forEach(tr => {
+    const ten    = tr.querySelector('[data-tb="ten"]')?.value?.trim() || '';
+    const sl     = parseFloat(tr.querySelector('[data-tb="soluong"]')?.value) || 0;
+    const tt     = tr.querySelector('[data-tb="tinhtrang"]')?.value || 'Đang hoạt động';
+    const nguoi  = tr.querySelector('[data-tb="nguoi"]')?.value?.trim() || '';
+    const ghichu = tr.querySelector('[data-tb="ghichu"]')?.value?.trim() || '';
+    if (ten) rows.push({ id: Date.now()+'_'+Math.random().toString(36).slice(2), ct, ten, soluong:sl, tinhtrang:tt, nguoi, ghichu, ngay });
+  });
+
+  if (!rows.length) { toast('Không có dữ liệu để lưu!', 'error'); return; }
+
+  tbData = [...tbData, ...rows];
+  save('tb_v1', tbData);
+  tbPopulateSels();
+  tbRenderList();
+  tbBuildRows();
+  toast(`✅ Đã lưu ${rows.length} thiết bị vào ${ct}`, 'success');
+}
+
+// ── Render bảng danh sách ─────────────────────────────────────────
+const TB_PG = 50;
+let tbPage = 1;
+
+function tbRenderList() {
+  const fCt = document.getElementById('tb-filter-ct')?.value || '';
+  const fTt = document.getElementById('tb-filter-tt')?.value || '';
+  let filtered = tbData.filter(r => {
+    if (fCt && r.ct !== fCt) return false;
+    if (fTt && r.tinhtrang !== fTt) return false;
+    return true;
+  });
+
+  // Sort: CT → tên
+  filtered.sort((a,b) => (a.ct||'').localeCompare(b.ct,'vi') || (a.ten||'').localeCompare(b.ten,'vi'));
+
+  const tbody = document.getElementById('tb-list-tbody');
+  const start = (tbPage-1)*TB_PG;
+  const paged = filtered.slice(start, start+TB_PG);
+
+  if (!paged.length) {
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="8">Chưa có thiết bị nào${fCt?' tại '+fCt:''}</td></tr>`;
+    document.getElementById('tb-pagination').innerHTML = '';
+    return;
+  }
+
+  tbody.innerHTML = paged.map(r => {
+    const ttStyle = TB_STATUS_STYLE[r.tinhtrang] || '';
+    const ttOpts = TB_TINH_TRANG.map(v =>
+      `<option value="${v}" ${r.tinhtrang===v?'selected':''}>${v}</option>`
+    ).join('');
+    return `<tr data-tbid="${r.id}">
+      <td style="font-size:12px;font-weight:600;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${x(r.ct)}">${x(r.ct)}</td>
+      <td style="font-weight:600;font-size:13px">${x(r.ten)}</td>
+      <td style="text-align:center;font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:14px;color:var(--gold)">${r.soluong||0}</td>
+      <td>
+        <select onchange="tbUpdateField('${r.id}','tinhtrang',this.value)"
+          style="padding:3px 8px;border-radius:5px;border:1px solid var(--line2);font-size:11px;font-weight:600;cursor:pointer;${ttStyle}">
+          ${ttOpts}
+        </select>
+      </td>
+      <td style="color:var(--ink2);font-size:12px">${x(r.nguoi||'—')}</td>
+      <td style="color:var(--ink2);font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${x(r.ghichu)}">${x(r.ghichu||'—')}</td>
+      <td style="font-size:10px;color:var(--ink3);white-space:nowrap">${r.ngay||''}</td>
+      <td style="white-space:nowrap;display:flex;gap:4px;padding:6px 4px">
+        <button class="btn btn-outline btn-sm" onclick="tbEditRow('${r.id}')" title="Sửa">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="tbDeleteRow('${r.id}')">✕</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  const tp = Math.ceil(filtered.length/TB_PG);
+  let pag = `<span>${filtered.length} thiết bị</span>`;
+  if (tp>1) {
+    pag += '<div class="page-btns">';
+    for(let p=1;p<=Math.min(tp,10);p++) pag+=`<button class="page-btn ${p===tbPage?'active':''}" onclick="tbGoTo(${p})">${p}</button>`;
+    pag += '</div>';
+  }
+  document.getElementById('tb-pagination').innerHTML = pag;
+}
+
+function tbGoTo(p) { tbPage=p; tbRenderList(); }
+
+// ── Cập nhật tình trạng inline ────────────────────────────────────
+function tbUpdateField(id, field, val) {
+  const idx = tbData.findIndex(r=>r.id===id);
+  if (idx<0) return;
+  tbData[idx][field] = val;
+  save('tb_v1', tbData);
+  // Re-style select
+  const tr = document.querySelector(`tr[data-tbid="${id}"]`);
+  if (tr) {
+    const sel = tr.querySelector('select');
+    if (sel) {
+      sel.style.cssText = `padding:3px 8px;border-radius:5px;border:1px solid var(--line2);font-size:11px;font-weight:600;cursor:pointer;${TB_STATUS_STYLE[val]||''}`;
+    }
+  }
+  toast('✅ Đã cập nhật tình trạng', 'success');
+}
+
+// ── Xóa thiết bị ─────────────────────────────────────────────────
+function tbDeleteRow(id) {
+  if (!confirm('Xóa thiết bị này?')) return;
+  tbData = tbData.filter(r=>r.id!==id);
+  save('tb_v1', tbData);
+  tbRenderList();
+  toast('Đã xóa thiết bị');
+}
+
+// ── Sửa thiết bị (modal) ─────────────────────────────────────────
+function tbEditRow(id) {
+  const r = tbData.find(r=>r.id===id);
+  if (!r) return;
+  let ov = document.getElementById('tb-edit-overlay');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'tb-edit-overlay';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px';
+    ov.onclick = function(e){ if(e.target===this) this.remove(); };
+    document.body.appendChild(ov);
+  }
+  const ctOpts = cats.congTrinh.map(v=>`<option value="${x(v)}" ${v===r.ct?'selected':''}>${x(v)}</option>`).join('');
+  const ttOpts = TB_TINH_TRANG.map(v=>`<option value="${v}" ${r.tinhtrang===v?'selected':''}>${v}</option>`).join('');
+  ov.innerHTML = `
+  <div style="background:#fff;border-radius:14px;padding:24px;width:min(480px,96vw);box-shadow:0 8px 32px rgba(0,0,0,.2);font-family:'IBM Plex Sans',sans-serif" onclick="event.stopPropagation()">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h3 style="font-size:16px;font-weight:700">✏️ Sửa Thiết Bị</h3>
+      <button onclick="document.getElementById('tb-edit-overlay').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#888">✕</button>
+    </div>
+    <div style="display:grid;gap:10px">
+      <div><label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:3px">Công Trình</label>
+        <select id="tb-ei-ct" style="width:100%;padding:8px 10px;border:1.5px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px;outline:none">
+          <option value="">-- Chọn --</option>${ctOpts}</select></div>
+      <div><label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:3px">Tên Thiết Bị</label>
+        <input id="tb-ei-ten" type="text" value="${x(r.ten)}" list="tb-ten-dl"
+          style="width:100%;padding:8px 10px;border:1.5px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px;outline:none"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div><label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:3px">Số Lượng</label>
+          <input id="tb-ei-sl" type="number" min="0" value="${r.soluong||0}"
+            style="width:100%;padding:8px 10px;border:1.5px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px;outline:none"></div>
+        <div><label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:3px">Tình Trạng</label>
+          <select id="tb-ei-tt" style="width:100%;padding:8px 10px;border:1.5px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px;outline:none">${ttOpts}</select></div>
+      </div>
+      <div><label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:3px">Người TH</label>
+        <input id="tb-ei-nguoi" type="text" value="${x(r.nguoi||'')}" list="tb-nguoi-dl"
+          style="width:100%;padding:8px 10px;border:1.5px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px;outline:none"></div>
+      <div><label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:3px">Ghi Chú</label>
+        <input id="tb-ei-ghichu" type="text" value="${x(r.ghichu||'')}"
+          style="width:100%;padding:8px 10px;border:1.5px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px;outline:none"></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button onclick="document.getElementById('tb-edit-overlay').remove()"
+        style="flex:1;padding:10px;border-radius:8px;border:1.5px solid #ddd;background:#fff;font-family:inherit;font-size:13px;cursor:pointer">Hủy</button>
+      <button onclick="tbSaveEdit('${r.id}')"
+        style="flex:2;padding:10px;border-radius:8px;border:none;background:#1a1814;color:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">💾 Cập Nhật</button>
+    </div>
+  </div>`;
+  ov.style.display = 'flex';
+}
+
+function tbSaveEdit(id) {
+  const idx = tbData.findIndex(r=>r.id===id);
+  if (idx<0) return;
+  tbData[idx] = { ...tbData[idx],
+    ct:        document.getElementById('tb-ei-ct').value,
+    ten:       document.getElementById('tb-ei-ten').value.trim(),
+    soluong:   parseFloat(document.getElementById('tb-ei-sl').value)||0,
+    tinhtrang: document.getElementById('tb-ei-tt').value,
+    nguoi:     document.getElementById('tb-ei-nguoi').value.trim(),
+    ghichu:    document.getElementById('tb-ei-ghichu').value.trim()
+  };
+  save('tb_v1', tbData);
+  document.getElementById('tb-edit-overlay').remove();
+  tbPopulateSels();
+  tbRenderList();
+  toast('✅ Đã cập nhật thiết bị!', 'success');
+}
+
+// ── Xuất CSV ─────────────────────────────────────────────────────
+function tbExportCSV() {
+  const fCt = document.getElementById('tb-filter-ct')?.value||'';
+  const fTt = document.getElementById('tb-filter-tt')?.value||'';
+  let data = tbData.filter(r=>{
+    if(fCt && r.ct!==fCt) return false;
+    if(fTt && r.tinhtrang!==fTt) return false;
+    return true;
+  });
+  const rows = [['Công Trình','Tên Thiết Bị','Số Lượng','Tình Trạng','Người TH','Ghi Chú','Cập Nhật']];
+  data.forEach(r=>rows.push([r.ct,r.ten,r.soluong||0,r.tinhtrang||'',r.nguoi||'',r.ghichu||'',r.ngay||'']));
+  dlCSV(rows, 'thiet_bi_'+today()+'.csv');
+}
+
+// ── Init TB khi load trang ────────────────────────────────────────
+// (tbData đã load ở trên, tbBuildRows gọi khi goPage)
+
 </script>
 </body>
 </html>
