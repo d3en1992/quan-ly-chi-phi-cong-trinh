@@ -588,14 +588,120 @@ html, body { max-width: 100%; overflow-x: hidden; }
   .tb-btn { min-width: 38px; padding: 8px 9px; }
 }
 
+
+/* ── Duplicate warning modal ─────────────────────────────── */
+.dup-modal-overlay {
+  display:none; position:fixed; inset:0; z-index:9000;
+  background:rgba(0,0,0,0.5); align-items:center; justify-content:center;
+}
+.dup-modal-overlay.open { display:flex; }
+.dup-modal {
+  background:#fff; border-radius:14px; padding:0;
+  max-width:480px; width:calc(100% - 32px);
+  box-shadow:0 20px 60px rgba(0,0,0,0.25);
+  animation: popIn .18s cubic-bezier(.34,1.3,.64,1);
+}
+@keyframes popIn { from{transform:scale(.92);opacity:0} to{transform:scale(1);opacity:1} }
+.dup-modal-head {
+  padding:18px 20px 14px;
+  border-bottom:1px solid #f0ede8;
+  display:flex; align-items:center; gap:10px;
+}
+.dup-modal-head .dup-icon { font-size:24px; }
+.dup-modal-head h3 { margin:0; font-size:15px; font-weight:700; color:#1a1814; }
+.dup-modal-body { padding:16px 20px; max-height:55vh; overflow-y:auto; }
+.dup-item {
+  background:#fff8e1; border:1px solid #ffe082;
+  border-radius:8px; padding:10px 12px; margin-bottom:8px; font-size:12px;
+}
+.dup-item-row { display:flex; gap:8px; margin-bottom:3px; }
+.dup-item-label { color:#888; min-width:60px; }
+.dup-item-val { color:#1a1814; font-weight:600; flex:1; }
+.dup-badge {
+  display:inline-block; padding:1px 7px; border-radius:10px;
+  font-size:10px; font-weight:700; margin-left:6px;
+}
+.dup-badge-exact { background:#ffccbc; color:#bf360c; }
+.dup-badge-fuzzy { background:#fff9c4; color:#f57f17; }
+.dup-modal-foot {
+  padding:14px 20px; border-top:1px solid #f0ede8;
+  display:flex; gap:8px; justify-content:flex-end;
+}
+
+/* ── Dashboard ──────────────────────────────────────────── */
+.db-kpi-card {
+  background:var(--paper); border:1px solid var(--line);
+  border-radius:10px; padding:16px 18px;
+  display:flex; flex-direction:column; gap:4px;
+}
+.db-kpi-label { font-size:11px; color:var(--ink3); font-weight:600; text-transform:uppercase; letter-spacing:.4px; }
+.db-kpi-val   { font-size:22px; font-weight:800; font-family:'IBM Plex Mono',monospace; color:var(--ink); line-height:1.1; }
+.db-kpi-sub   { font-size:11px; color:var(--ink3); }
+.db-kpi-card.accent-gold  { border-left:3px solid var(--gold); }
+.db-kpi-card.accent-green { border-left:3px solid var(--green); }
+.db-kpi-card.accent-red   { border-left:3px solid var(--red); }
+.db-kpi-card.accent-blue  { border-left:3px solid #4a90d9; }
+.db-bar-wrap  { display:flex; align-items:flex-end; gap:5px; height:160px; padding-bottom:22px; position:relative; }
+.db-bar-col   { display:flex; flex-direction:column; align-items:center; flex:1; min-width:28px; }
+.db-bar       { width:100%; background:var(--gold); border-radius:4px 4px 0 0;
+                transition:opacity .15s; cursor:default; min-height:2px; }
+.db-bar:hover { opacity:.75; }
+.db-bar-lbl   { font-size:9px; color:var(--ink3); margin-top:4px; white-space:nowrap; }
+.db-bar-amt   { font-size:9px; color:var(--ink2); margin-bottom:2px; white-space:nowrap; }
+.db-pie-svg   { overflow:visible; }
+.db-legend    { display:flex; flex-direction:column; gap:5px; margin-top:12px; width:100%; }
+.db-legend-row{ display:flex; align-items:center; gap:8px; font-size:12px; }
+.db-legend-dot{ width:10px; height:10px; border-radius:2px; flex-shrink:0; }
+.db-legend-pct{ margin-left:auto; font-weight:700; font-family:'IBM Plex Mono',monospace; font-size:11px; }
+.db-rank-row  {
+  display:flex; align-items:center; gap:10px;
+  padding:9px 0; border-bottom:1px solid var(--line);
+  font-size:12px;
+}
+.db-rank-row:last-child { border-bottom:none; }
+.db-rank-num  { font-weight:800; color:var(--ink3); min-width:20px; font-size:13px; }
+.db-rank-num.top1 { color:var(--gold); }
+.db-rank-bar-bg { flex:1; height:6px; background:var(--bg); border-radius:3px; overflow:hidden; }
+.db-rank-bar-fill { height:100%; background:var(--gold); border-radius:3px; }
+.db-rank-amt  { font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:11px;
+                color:var(--ink); white-space:nowrap; }
+.db-empty     { text-align:center; padding:32px 0; color:var(--ink3); font-size:13px; }
+@media (max-width:768px) {
+  #db-charts-row { grid-template-columns:1fr !important; }
+  #db-kpi-row    { grid-template-columns:1fr 1fr !important; }
+  .db-kpi-val    { font-size:17px; }
+}
+@media (max-width:480px) {
+  #db-kpi-row  { grid-template-columns:1fr 1fr !important; }
+  #page-dashboard > div:last-child { grid-template-columns:1fr !important; }
+}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 <input type="file" id="import-file-input" accept=".xlsx,.xls" style="display:none" onchange="handleImportFile(event)">
+<input type="file" id="import-json-input" accept=".json" style="display:none" onchange="importJSON(this.files[0])">
 
 <!-- ── Bin ID Modal ── -->
 
+
+<!-- ── Duplicate Invoice Warning Modal ── -->
+<div class="dup-modal-overlay" id="dup-modal-overlay">
+  <div class="dup-modal">
+    <div class="dup-modal-head">
+      <span class="dup-icon">⚠️</span>
+      <div>
+        <h3>Phát hiện hóa đơn trùng lặp</h3>
+        <div style="font-size:12px;color:#888;margin-top:2px" id="dup-modal-subtitle"></div>
+      </div>
+    </div>
+    <div class="dup-modal-body" id="dup-modal-body"></div>
+    <div class="dup-modal-foot">
+      <button class="btn btn-outline" onclick="closeDupModal()">✕ Hủy bỏ</button>
+      <button class="btn btn-gold" onclick="forceSaveAll()">💾 Vẫn lưu tất cả</button>
+    </div>
+  </div>
+</div>
 
 <div class="topbar">
   <!-- Hàng 1: Logo + Năm + Tổng CP + Cloud -->
@@ -630,6 +736,7 @@ html, body { max-width: 100%; overflow-x: hidden; }
     <button class="nav-btn" data-page="ct" onclick="goPage(this,'ct')">Tổng CP CT</button>
     <button class="nav-btn" data-page="thietbi" onclick="goPage(this,'thietbi')">🔧 Theo dõi TB</button>
     <button class="nav-btn" data-page="danhmuc" onclick="goPage(this,'danhmuc')">⚙ Danh Mục</button>
+    <button class="nav-btn" data-page="dashboard" onclick="goPage(this,'dashboard')">📊 Dashboard</button>
   </nav>
 </div>
 
@@ -871,6 +978,47 @@ html, body { max-width: 100%; overflow-x: hidden; }
       <span style="font-size:12px;color:var(--ink3)">Nhấn ✏️ hoặc nhấp đúp để sửa tên • Thay đổi sẽ tự cập nhật vào hóa đơn đã lưu</span>
     </div>
     <div id="dm-grid" class="settings-grid"></div>
+
+    <!-- ── Panel Sao Lưu & Khôi Phục ── -->
+    <div style="margin-top:28px">
+      <div class="section-header">
+        <div class="section-title"><span class="dot"></span>💾 Sao Lưu &amp; Khôi Phục</div>
+        <span style="font-size:12px;color:var(--ink3)" id="backup-status-label"></span>
+      </div>
+
+      <div class="records-wrap" style="padding:16px 20px">
+
+        <!-- Hàng 1: Nút hành động -->
+        <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px">
+          <button class="btn btn-outline" onclick="exportJSON()" title="Xuất toàn bộ data ra file .json">
+            📤 Xuất JSON
+          </button>
+          <button class="btn btn-outline" onclick="document.getElementById('import-json-input').click()" title="Khôi phục từ file .json đã xuất trước đó">
+            📥 Nhập JSON
+          </button>
+          <button class="btn btn-outline" onclick="_snapshotNow('manual');renderBackupList();toast('✅ Đã tạo bản sao lưu thủ công','success')" title="Tạo bản sao lưu ngay bây giờ">
+            📸 Sao lưu ngay
+          </button>
+        </div>
+
+        <!-- Hàng 2: Danh sách backup -->
+        <div style="font-size:12px;font-weight:700;color:var(--ink2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">
+          Bản sao lưu tự động (giữ 3 bản gần nhất)
+        </div>
+        <div id="backup-list-wrap">
+          <div style="color:var(--ink3);font-size:13px;padding:8px 0">Đang tải...</div>
+        </div>
+
+        <!-- Mô tả -->
+        <div style="margin-top:12px;padding:10px 14px;background:var(--bg);border-radius:6px;border:1px solid var(--line);font-size:12px;color:var(--ink3);line-height:1.7">
+          <strong style="color:var(--ink2)">Cách hoạt động:</strong><br>
+          • <b>Tự động</b>: App tạo bản sao lưu sau 1 phút kể từ khi mở, sau đó mỗi 10 phút một lần<br>
+          • <b>Xuất JSON</b>: Tải file về máy — dùng để backup thủ công hoặc chuyển thiết bị<br>
+          • <b>Nhập JSON</b>: Khôi phục từ file .json (app sẽ backup dữ liệu hiện tại trước khi ghi đè)<br>
+          • <b>Data version</b>: <span id="data-version-badge" style="background:var(--green);color:#fff;padding:1px 7px;border-radius:10px;font-weight:700"></span>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- PAGE: TIỀN ỨNG TP/NCC (gộp nhập + tổng) -->
@@ -1084,6 +1232,42 @@ html, body { max-width: 100%; overflow-x: hidden; }
 
   </div>
 
+
+  <!-- PAGE: DASHBOARD -->
+  <div class="page" id="page-dashboard">
+    <div class="section-header">
+      <div class="section-title"><span class="dot"></span>📊 Dashboard Tổng Quan</div>
+      <button class="btn btn-outline btn-sm" onclick="renderDashboard()">↻ Làm mới</button>
+    </div>
+
+    <!-- Hàng 1: KPI cards -->
+    <div id="db-kpi-row" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:22px"></div>
+
+    <!-- Hàng 2: Biểu đồ cột tháng + Pie tỷ trọng -->
+    <div style="display:grid;grid-template-columns:1fr 340px;gap:16px;margin-bottom:22px" id="db-charts-row">
+      <div class="records-wrap" style="padding:18px 20px">
+        <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:14px">Chi Phí Theo Tháng</div>
+        <div id="db-bar-chart" style="width:100%;overflow-x:auto"></div>
+      </div>
+      <div class="records-wrap" style="padding:18px 20px">
+        <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:14px">Tỷ Trọng Chi Phí</div>
+        <div id="db-pie-chart" style="display:flex;flex-direction:column;align-items:center"></div>
+      </div>
+    </div>
+
+    <!-- Hàng 3: Top 5 + CT cao nhất -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="records-wrap" style="padding:18px 20px">
+        <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:14px">🏆 Top 5 Chi Phí Lớn Nhất</div>
+        <div id="db-top5"></div>
+      </div>
+      <div class="records-wrap" style="padding:18px 20px">
+        <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:14px">🏗️ Chi Phí Theo Công Trình</div>
+        <div id="db-by-ct"></div>
+      </div>
+    </div>
+  </div>
+
 </div><!-- /content -->
 
 
@@ -1149,6 +1333,340 @@ function _loadLS(k) {
   try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch { return null; }
 }
 function _saveLS(k, v) { localStorage.setItem(k, JSON.stringify(v)); }
+
+// ══════════════════════════════════════════════════════════════
+// [MODULE: STORAGE v2] — DATA_VERSION · Migration · Backup · JSON IO
+// Tìm nhanh: Ctrl+F → "MODULE: STORAGE"
+// ══════════════════════════════════════════════════════════════
+
+// ── Phiên bản schema hiện tại ─────────────────────────────────
+// Tăng DATA_VERSION khi thay đổi cấu trúc data (thêm field bắt buộc,
+// đổi tên key, v.v.). migrateData() sẽ tự nâng cấp data cũ lên mới.
+const DATA_VERSION = 3;
+const DATA_VERSION_KEY = 'app_data_version';
+
+// ── Migration: nâng cấp data cũ lên version hiện tại ─────────
+// Thêm case mới khi nâng DATA_VERSION lên
+function migrateData() {
+  const stored = parseInt(_loadLS(DATA_VERSION_KEY) || '0');
+  if (stored >= DATA_VERSION) return; // Đã cập nhật, bỏ qua
+
+  console.log('[Migration] Từ v' + stored + ' → v' + DATA_VERSION);
+
+  // v0 → v1: inv không có field sl → set mặc định sl=1
+  if (stored < 1) {
+    const invs = _loadLS('inv_v3') || [];
+    let changed = 0;
+    invs.forEach(inv => {
+      if (inv.sl === undefined || inv.sl === null) { inv.sl = 1; changed++; }
+      if (inv.thanhtien === undefined) { inv.thanhtien = (inv.tien || 0) * (inv.sl || 1); changed++; }
+    });
+    if (changed) _saveLS('inv_v3', invs);
+    console.log('[Migration v1] Chuẩn hoá sl/thanhtien:', changed, 'HĐ');
+  }
+
+  // v1 → v2: cc_v2 workers không có field phucap/hdmuale → set 0
+  if (stored < 2) {
+    const ccs = _loadLS('cc_v2') || [];
+    let changed = 0;
+    ccs.forEach(week => {
+      (week.workers || []).forEach(wk => {
+        if (wk.phucap === undefined) { wk.phucap = 0; changed++; }
+        if (wk.hdmuale === undefined) { wk.hdmuale = 0; changed++; }
+      });
+    });
+    if (changed) _saveLS('cc_v2', ccs);
+    console.log('[Migration v2] Chuẩn hoá CC workers:', changed, 'worker');
+  }
+
+  // v2 → v3: đảm bảo mọi invoice có _ts (timestamp tạo)
+  if (stored < 3) {
+    const invs = _loadLS('inv_v3') || [];
+    let changed = 0;
+    invs.forEach(inv => {
+      if (!inv._ts) { inv._ts = inv.id || Date.now(); changed++; }
+    });
+    if (changed) _saveLS('inv_v3', invs);
+    console.log('[Migration v3] Thêm _ts cho', changed, 'HĐ');
+  }
+
+  // ── Thêm migration mới ở đây khi tăng DATA_VERSION ───────
+  // if (stored < 4) { ... }
+
+  _saveLS(DATA_VERSION_KEY, DATA_VERSION);
+  console.log('[Migration] Hoàn tất → v' + DATA_VERSION);
+}
+
+// ── Auto Backup mỗi 10 phút ───────────────────────────────────
+// Lưu snapshot toàn bộ data vào localStorage key: backup_auto
+// Giữ tối đa 3 bản gần nhất (tránh tràn localStorage)
+const BACKUP_KEY     = 'backup_auto';
+const BACKUP_MAX     = 3;      // số bản backup giữ lại
+const BACKUP_MINS    = 10;     // chu kỳ backup (phút)
+let   _backupTimer   = null;
+
+function _snapshotNow(label) {
+  try {
+    const snap = {
+      _ver:  DATA_VERSION,
+      _time: new Date().toISOString(),
+      _label: label || 'auto',
+      inv:  _loadLS('inv_v3')  || [],
+      ung:  _loadLS('ung_v1')  || [],
+      cc:   _loadLS('cc_v2')   || [],
+      tb:   _loadLS('tb_v1')   || [],
+      cats: {
+        ct:    _loadLS('cat_ct')    || [],
+        loai:  _loadLS('cat_loai')  || [],
+        ncc:   _loadLS('cat_ncc')   || [],
+        nguoi: _loadLS('cat_nguoi') || [],
+        tp:    _loadLS('cat_tp')    || [],
+        cn:    _loadLS('cat_cn')    || []
+      }
+    };
+    // Giữ tối đa BACKUP_MAX bản
+    const list = _loadLS(BACKUP_KEY) || [];
+    list.unshift(snap);
+    if (list.length > BACKUP_MAX) list.length = BACKUP_MAX;
+    _saveLS(BACKUP_KEY, list);
+    return snap;
+  } catch(e) {
+    console.warn('[Backup] Lỗi:', e);
+    return null;
+  }
+}
+
+function autoBackup() {
+  if (_backupTimer) clearInterval(_backupTimer);
+  // Chạy lần đầu sau 1 phút kể từ khi mở app
+  setTimeout(() => {
+    _snapshotNow('auto');
+    // Sau đó lặp mỗi BACKUP_MINS phút
+    _backupTimer = setInterval(() => {
+      _snapshotNow('auto');
+      console.log('[Backup] Auto snapshot lúc', new Date().toLocaleTimeString('vi-VN'));
+    }, BACKUP_MINS * 60 * 1000);
+  }, 60 * 1000);
+}
+
+function getBackupList() {
+  return (_loadLS(BACKUP_KEY) || []).map((b, i) => ({
+    index: i,
+    label: b._label || 'auto',
+    time:  b._time  || '',
+    ver:   b._ver   || 0,
+    counts: {
+      inv: (b.inv||[]).length,
+      ung: (b.ung||[]).length,
+      cc:  (b.cc||[]).length,
+      tb:  (b.tb||[]).length
+    }
+  }));
+}
+
+// ── Export toàn bộ data ra file JSON ─────────────────────────
+function exportJSON() {
+  const snap = _snapshotNow('manual-export');
+  if (!snap) { toast('❌ Không thể tạo snapshot', 'error'); return; }
+  const json = JSON.stringify(snap, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const ts   = new Date().toISOString().slice(0,16).replace('T','_').replace(':','-');
+  a.href     = url;
+  a.download = 'cpct_backup_' + ts + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('✅ Đã xuất file JSON (' +
+    snap.inv.length + ' HĐ, ' +
+    snap.ung.length + ' tiền ứng, ' +
+    snap.cc.length  + ' tuần CC)', 'success');
+}
+
+// ── Import JSON — khôi phục data từ file backup ──────────────
+function importJSON(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const snap = JSON.parse(e.target.result);
+      // Kiểm tra cấu trúc tối thiểu
+      if (typeof snap !== 'object' || (!snap.inv && !snap.ung && !snap.cc)) {
+        toast('❌ File JSON không hợp lệ hoặc không phải backup của app này', 'error');
+        return;
+      }
+      // Hiện confirm dialog
+      const inv  = (snap.inv||[]).length;
+      const ung  = (snap.ung||[]).length;
+      const cc   = (snap.cc||[]).length;
+      const tb   = (snap.tb||[]).length;
+      const time = snap._time ? new Date(snap._time).toLocaleString('vi-VN') : '(không rõ)';
+      const ok = confirm(
+        '⚠️ KHÔI PHỤC DỮ LIỆU TỪ FILE JSON
+
+' +
+        'File backup lúc: ' + time + '
+' +
+        'Nội dung: ' + inv + ' HĐ · ' + ung + ' tiền ứng · ' + cc + ' tuần CC · ' + tb + ' thiết bị
+
+' +
+        '⚠️ Toàn bộ dữ liệu hiện tại sẽ bị THAY THẾ.
+' +
+        'Hệ thống sẽ tự backup trước khi ghi đè.
+
+' +
+        'Tiếp tục không?'
+      );
+      if (!ok) return;
+
+      // Backup data hiện tại trước khi ghi đè
+      _snapshotNow('before-json-import');
+
+      // Ghi data từ file vào localStorage
+      if (snap.inv)  _saveLS('inv_v3',  snap.inv);
+      if (snap.ung)  _saveLS('ung_v1',  snap.ung);
+      if (snap.cc)   _saveLS('cc_v2',   snap.cc);
+      if (snap.tb)   _saveLS('tb_v1',   snap.tb);
+      if (snap.cats) {
+        if (snap.cats.ct)    _saveLS('cat_ct',    snap.cats.ct);
+        if (snap.cats.loai)  _saveLS('cat_loai',  snap.cats.loai);
+        if (snap.cats.ncc)   _saveLS('cat_ncc',   snap.cats.ncc);
+        if (snap.cats.nguoi) _saveLS('cat_nguoi', snap.cats.nguoi);
+        if (snap.cats.tp)    _saveLS('cat_tp',    snap.cats.tp);
+        if (snap.cats.cn)    _saveLS('cat_cn',    snap.cats.cn);
+      }
+
+      // Chạy migration nếu file cũ hơn version hiện tại
+      _saveLS(DATA_VERSION_KEY, snap._ver || 0);
+      migrateData();
+
+      // Reload lại toàn bộ app state
+      invoices   = load('inv_v3', []);
+      ungRecords = load('ung_v1', []);
+      ccData     = load('cc_v2', []);
+      tbData     = load('tb_v1', []);
+      cats.congTrinh  = load('cat_ct',    DEFAULTS.congTrinh);
+      cats.loaiChiPhi = load('cat_loai',  DEFAULTS.loaiChiPhi);
+      cats.nhaCungCap = load('cat_ncc',   DEFAULTS.nhaCungCap);
+      cats.nguoiTH    = load('cat_nguoi', DEFAULTS.nguoiTH);
+      cats.thauPhu    = load('cat_tp',    []);
+      cats.congNhan   = load('cat_cn',    []);
+
+      buildYearSelect(); _refreshAllTabs();
+      rebuildEntrySelects(); rebuildUngSelects();
+      renderSettings(); updateTop();
+
+      toast('✅ Khôi phục thành công! ' + inv + ' HĐ, ' + ung + ' tiền ứng, ' + cc + ' tuần CC', 'success');
+    } catch(err) {
+      toast('❌ Lỗi đọc file JSON: ' + err.message, 'error');
+    }
+  };
+  reader.readAsText(file);
+}
+
+// ── Khôi phục từ 1 bản auto backup ───────────────────────────
+function restoreFromBackup(index) {
+  const list = _loadLS(BACKUP_KEY) || [];
+  const snap = list[index];
+  if (!snap) { toast('❌ Không tìm thấy bản backup này', 'error'); return; }
+
+  const time = snap._time ? new Date(snap._time).toLocaleString('vi-VN') : '(không rõ)';
+  const ok = confirm(
+    'Khôi phục bản backup: ' + time + '
+' +
+    (snap.inv||[]).length + ' HĐ · ' + (snap.ung||[]).length + ' tiền ứng · ' +
+    (snap.cc||[]).length + ' tuần CC
+
+' +
+    '⚠️ Data hiện tại sẽ bị thay thế. Tiếp tục?'
+  );
+  if (!ok) return;
+
+  _snapshotNow('before-restore');
+  if (snap.inv)  _saveLS('inv_v3',  snap.inv);
+  if (snap.ung)  _saveLS('ung_v1',  snap.ung);
+  if (snap.cc)   _saveLS('cc_v2',   snap.cc);
+  if (snap.tb)   _saveLS('tb_v1',   snap.tb);
+  if (snap.cats) {
+    if (snap.cats.ct)    _saveLS('cat_ct',    snap.cats.ct);
+    if (snap.cats.loai)  _saveLS('cat_loai',  snap.cats.loai);
+    if (snap.cats.ncc)   _saveLS('cat_ncc',   snap.cats.ncc);
+    if (snap.cats.nguoi) _saveLS('cat_nguoi', snap.cats.nguoi);
+    if (snap.cats.tp)    _saveLS('cat_tp',    snap.cats.tp);
+    if (snap.cats.cn)    _saveLS('cat_cn',    snap.cats.cn);
+  }
+
+  invoices   = load('inv_v3', []);
+  ungRecords = load('ung_v1', []);
+  ccData     = load('cc_v2', []);
+  tbData     = load('tb_v1', []);
+  cats.congTrinh  = load('cat_ct',    DEFAULTS.congTrinh);
+  cats.loaiChiPhi = load('cat_loai',  DEFAULTS.loaiChiPhi);
+  cats.nhaCungCap = load('cat_ncc',   DEFAULTS.nhaCungCap);
+  cats.nguoiTH    = load('cat_nguoi', DEFAULTS.nguoiTH);
+  cats.thauPhu    = load('cat_tp',    []);
+  cats.congNhan   = load('cat_cn',    []);
+
+  buildYearSelect(); _refreshAllTabs();
+  rebuildEntrySelects(); rebuildUngSelects();
+  renderSettings(); updateTop();
+  toast('✅ Đã khôi phục bản backup lúc ' + time, 'success');
+}
+
+// ── Render danh sách backup vào panel UI ──────────────────────
+function renderBackupList() {
+  const wrap = document.getElementById('backup-list-wrap');
+  if (!wrap) return;
+
+  // Cập nhật badge version
+  const badge = document.getElementById('data-version-badge');
+  if (badge) badge.textContent = 'v' + DATA_VERSION;
+
+  // Cập nhật thời gian backup gần nhất
+  const statusLabel = document.getElementById('backup-status-label');
+  const list = _loadLS(BACKUP_KEY) || [];
+
+  if (!list.length) {
+    wrap.innerHTML = '<div style="color:var(--ink3);font-size:13px;padding:8px 0">Chưa có bản sao lưu nào. App sẽ tự động tạo sau 1 phút.</div>';
+    if (statusLabel) statusLabel.textContent = '';
+    return;
+  }
+
+  // Label thời gian backup gần nhất
+  if (statusLabel && list[0]?._time) {
+    const t = new Date(list[0]._time).toLocaleString('vi-VN');
+    statusLabel.textContent = 'Backup gần nhất: ' + t;
+  }
+
+  // Render từng bản backup
+  const rows = list.map((b, i) => {
+    const time  = b._time ? new Date(b._time).toLocaleString('vi-VN') : '(không rõ)';
+    const label = b._label === 'auto' ? '🔄 Tự động' :
+                  b._label === 'manual' ? '📸 Thủ công' :
+                  b._label === 'manual-export' ? '📤 Trước khi xuất' :
+                  b._label === 'before-json-import' ? '🛡 Trước khi nhập JSON' :
+                  b._label === 'before-restore' ? '🛡 Trước khi khôi phục' : b._label;
+    const counts = (b.inv||[]).length + ' HĐ · ' +
+                   (b.ung||[]).length + ' tiền ứng · ' +
+                   (b.cc||[]).length  + ' tuần CC · ' +
+                   (b.tb||[]).length  + ' TB';
+    const isNewest = i === 0;
+    return `<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;
+              background:${isNewest ? 'var(--paper)' : 'transparent'};
+              border-radius:8px;border:1px solid ${isNewest ? 'var(--line2)' : 'transparent'};
+              margin-bottom:6px;flex-wrap:wrap">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;color:var(--ink)">${label}</div>
+        <div style="font-size:11px;color:var(--ink3);margin-top:2px">${time} &nbsp;·&nbsp; ${counts}</div>
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="restoreFromBackup(${i})" title="Khôi phục bản này">
+        ↩ Khôi phục
+      </button>
+    </div>`;
+  }).join('');
+
+  wrap.innerHTML = rows;
+}
 
 function fbReady() { return FB_CONFIG.apiKey && FB_CONFIG.projectId; }
 
@@ -1579,6 +2097,12 @@ function init() {
   updateTop();
   updateJbBtn();
 
+  // ── Nâng cấp schema nếu cần (chạy trước khi dùng data) ──
+  migrateData();
+
+  // ── Bắt đầu auto backup ngầm mỗi 10 phút ──────────────────
+  autoBackup();
+
   // Tự động tạo HĐ nhân công nếu có CC data nhưng chưa có HĐ (vd: sau khi import Excel)
   autoRebuildCCIfNeeded();
 
@@ -1639,6 +2163,7 @@ function goPage(btn, id) {
   if (id==='tatca') { buildFilters(); filterAndRender(); }
   if (id==='nhap') { renderTodayInvoices(); }
   if (id==='danhmuc') renderSettings();
+  if (id==='dashboard') renderDashboard();
   if (id==='nhapung') { initUngTableIfEmpty(); buildUngFilters(); filterAndRenderUng(); }
   if (id==='chamcong') { populateCCCtSel(); rebuildCCNameList(); renderCCHistory(); renderCCTLT(); }
   if (id==='thietbi') { tbPopulateSels(); tbBuildRows(8); tbRenderList(); }
@@ -1763,10 +2288,13 @@ function clearTable() {
   initTable(5);
 }
 
-function saveAllRows() {
+function saveAllRows(skipDupCheck) {
   const date = document.getElementById('entry-date').value;
   if(!date) { toast('Vui lòng chọn ngày!','error'); return; }
-  let saved=0, updated=0, errRow=0;
+
+  // Thu thập tất cả dòng hợp lệ
+  const rows = [];
+  let errRow = 0;
   document.querySelectorAll('#entry-tbody tr').forEach(tr => {
     const loai = (tr.querySelector('[data-f="loai"]')?.value||'').trim();
     const ct   = (tr.querySelector('[data-f="ct"]')?.value||'').trim();
@@ -1774,54 +2302,178 @@ function saveAllRows() {
     if(!loai&&!ct&&!tien) return;
     if(!ct||!loai) { errRow++; tr.style.background='#fdecea'; return; }
     tr.style.background='';
-    const editId = tr.dataset.editId;
-    const sl = parseFloat(tr.querySelector('[data-f="sl"]')?.value)||1;
-    const thanhtien = Math.round(tien * sl);
-    const payload = {
-      ngay:date, congtrinh:ct, loai,
-      nguoi:(tr.querySelector('[data-f="nguoi"]')?.value||'').trim(),
-      ncc:(tr.querySelector('[data-f="ncc"]')?.value||'').trim(),
-      nd:(tr.querySelector('[data-f="nd"]')?.value||'').trim(),
-      tien, sl: sl!==1?sl:undefined, thanhtien
-    };
-    if (editId) {
-      // Chế độ CẬP NHẬT hóa đơn cũ
-      const idx = invoices.findIndex(i=>String(i.id)===String(editId));
-      if(idx>=0) { invoices[idx]={...invoices[idx],...payload, _ts: Date.now()}; updated++; }
-    } else {
-      // Kiểm tra trùng: cùng ngày + CT + Loại + Số tiền + Nội dung → skip
-      const isDup = invoices.some(i =>
-        i.ngay===payload.ngay && i.congtrinh===payload.congtrinh &&
-        i.loai===payload.loai && (i.thanhtien||i.tien||0)===(payload.thanhtien||0) &&
-        (i.nd||'')===(payload.nd||'') && !tr.dataset.forceSave
-      );
-      if(isDup) {
-        tr.style.background='#fff3cd';
-        tr.title='⚠️ Hóa đơn trùng — đã bỏ qua';
-        return; // skip duplicate
+    rows.push({
+      tr,
+      editId: tr.dataset.editId || null,
+      payload: {
+        ngay: date,
+        congtrinh: ct, loai,
+        nguoi: (tr.querySelector('[data-f="nguoi"]')?.value||'').trim(),
+        ncc:   (tr.querySelector('[data-f="ncc"]')?.value||'').trim(),
+        nd:    (tr.querySelector('[data-f="nd"]')?.value||'').trim(),
+        tien,
+        sl:    parseFloat(tr.querySelector('[data-f="sl"]')?.value)||1,
+        get thanhtien() { return Math.round(this.tien * this.sl); }
       }
-      invoices.unshift({id: Date.now()+Math.random(), _ts: Date.now(), ...payload});
+    });
+  });
+
+  if(errRow>0) { toast(`${errRow} dòng thiếu Công Trình hoặc Loại CP!`,'error'); return; }
+  if(!rows.length) { toast('Không có dòng hợp lệ!','error'); return; }
+
+  // Kiểm tra trùng — chỉ cho dòng MỚI (không phải edit)
+  if(!skipDupCheck) {
+    const newRows = rows.filter(r => !r.editId);
+    const dupRows = [];
+    newRows.forEach(r => {
+      // Chỉ so sánh với HĐ nhập tay (không ccKey) trong cùng ngày+CT
+      const candidates = invoices.filter(i =>
+        !i.ccKey &&
+        i.ngay === r.payload.ngay &&
+        i.congtrinh === r.payload.congtrinh &&
+        (i.thanhtien||i.tien||0) === Math.round(r.payload.tien * r.payload.sl)
+      );
+      if(!candidates.length) return;
+
+      // Fuzzy match nội dung ≥ 70%
+      const nd = r.payload.nd.toLowerCase().trim();
+      candidates.forEach(inv => {
+        const sim = _strSimilarity(nd, (inv.nd||'').toLowerCase().trim());
+        if(sim >= 0.7 || (nd === '' && (inv.nd||'') === '')) {
+          dupRows.push({
+            newRow: r,
+            existing: inv,
+            similarity: sim,
+            isExact: sim >= 0.99
+          });
+        }
+      });
+    });
+
+    if(dupRows.length > 0) {
+      _showDupModal(dupRows, rows);
+      return; // Dừng lại — chờ user quyết định
+    }
+  }
+
+  // ── Thực sự lưu ────────────────────────────────────────────
+  _doSaveRows(rows);
+}
+
+// ── Fuzzy string similarity (Dice coefficient) ───────────────
+// Trả về 0.0 → 1.0. Không cần thư viện ngoài.
+function _strSimilarity(a, b) {
+  if(a === b) return 1;
+  if(!a || !b) return 0;
+  if(a.length < 2 || b.length < 2) return a === b ? 1 : 0;
+  const getBigrams = s => {
+    const set = new Map();
+    for(let i = 0; i < s.length - 1; i++) {
+      const bg = s.slice(i, i+2);
+      set.set(bg, (set.get(bg)||0) + 1);
+    }
+    return set;
+  };
+  const aMap = getBigrams(a);
+  const bMap = getBigrams(b);
+  let intersection = 0;
+  aMap.forEach((cnt, bg) => {
+    if(bMap.has(bg)) intersection += Math.min(cnt, bMap.get(bg));
+  });
+  return (2 * intersection) / (a.length - 1 + b.length - 1);
+}
+
+// ── Hiển thị modal cảnh báo trùng ────────────────────────────
+function _showDupModal(dupRows, allRows) {
+  const overlay = document.getElementById('dup-modal-overlay');
+  const body    = document.getElementById('dup-modal-body');
+  const sub     = document.getElementById('dup-modal-subtitle');
+
+  // Lưu allRows để forceSave dùng lại
+  overlay._allRows = allRows;
+
+  sub.textContent = `Tìm thấy ${dupRows.length} hóa đơn có thể bị trùng`;
+
+  const numFmtLocal = n => n ? n.toLocaleString('vi-VN') + 'đ' : '0đ';
+  body.innerHTML = dupRows.map(d => {
+    const pct     = Math.round(d.similarity * 100);
+    const badge   = d.isExact
+      ? '<span class="dup-badge dup-badge-exact">Trùng hoàn toàn</span>'
+      : `<span class="dup-badge dup-badge-fuzzy">Giống ${pct}%</span>`;
+    const existTime = d.existing._ts
+      ? new Date(d.existing._ts).toLocaleString('vi-VN')
+      : d.existing.ngay || '';
+    return `<div class="dup-item">
+      <div style="font-size:11px;font-weight:700;color:#f57f17;margin-bottom:6px">
+        HĐ MỚI ${badge}
+      </div>
+      <div class="dup-item-row">
+        <span class="dup-item-label">Ngày</span>
+        <span class="dup-item-val">${d.newRow.payload.ngay}</span>
+      </div>
+      <div class="dup-item-row">
+        <span class="dup-item-label">Công trình</span>
+        <span class="dup-item-val">${d.newRow.payload.congtrinh}</span>
+      </div>
+      <div class="dup-item-row">
+        <span class="dup-item-label">Số tiền</span>
+        <span class="dup-item-val" style="color:var(--red);font-family:'IBM Plex Mono',monospace">
+          ${numFmtLocal(Math.round(d.newRow.payload.tien * d.newRow.payload.sl))}
+        </span>
+      </div>
+      <div class="dup-item-row">
+        <span class="dup-item-label">Nội dung</span>
+        <span class="dup-item-val">${d.newRow.payload.nd||'(trống)'}</span>
+      </div>
+      <div style="margin-top:8px;padding-top:8px;border-top:1px dashed #ffe082;font-size:11px;color:#888">
+        ↑ Trùng với HĐ đã lưu lúc ${existTime}:
+        <span style="color:#555;font-weight:600">${d.existing.nd||'(trống)'}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  overlay.classList.add('open');
+}
+
+function closeDupModal() {
+  document.getElementById('dup-modal-overlay').classList.remove('open');
+}
+
+function forceSaveAll() {
+  closeDupModal();
+  const overlay = document.getElementById('dup-modal-overlay');
+  const allRows = overlay._allRows;
+  if(allRows) _doSaveRows(allRows);
+}
+
+// ── Hàm lưu thực sự (dùng chung cho cả normal và force) ──────
+function _doSaveRows(rows) {
+  let saved = 0, updated = 0;
+  rows.forEach(({tr, editId, payload}) => {
+    const p = {
+      ngay: payload.ngay, congtrinh: payload.congtrinh, loai: payload.loai,
+      nguoi: payload.nguoi, ncc: payload.ncc, nd: payload.nd,
+      tien: payload.tien,
+      sl: payload.sl !== 1 ? payload.sl : undefined,
+      thanhtien: Math.round(payload.tien * payload.sl)
+    };
+    if(editId) {
+      const idx = invoices.findIndex(i => String(i.id) === String(editId));
+      if(idx >= 0) { invoices[idx] = {...invoices[idx], ...p, _ts: Date.now()}; updated++; }
+    } else {
+      invoices.unshift({id: Date.now() + Math.random(), _ts: Date.now(), ...p});
       saved++;
     }
+    tr.style.background = '#f0fff4';
   });
-  if(errRow>0) { toast(`${errRow} dòng thiếu Công Trình hoặc Loại CP!`,'error'); return; }
-  const dupRows = document.querySelectorAll('#entry-tbody tr[title*="trùng"]').length;
-  if(saved+updated===0 && dupRows>0) {
-    toast(`⚠️ ${dupRows} hóa đơn trùng lặp — không lưu! Nếu muốn lưu hãy sửa nội dung.`,'error');
-    return;
-  }
-  if(saved+updated===0) { toast('Không có dòng hợp lệ!','error'); return; }
+
   save('inv_v3', invoices);
   buildYearSelect(); updateTop();
-  if(updated>0) toast(`✅ Đã cập nhật ${updated} hóa đơn!`,'success');
-  else toast(`✅ Đã lưu ${saved} hóa đơn!`,'success');
-  // KHÔNG xóa bảng — đánh dấu row đã lưu bằng nền xanh nhạt
-  document.querySelectorAll('#entry-tbody tr').forEach(tr => {
-    const loai = (tr.querySelector('[data-f="loai"]')?.value||'').trim();
-    const ct   = (tr.querySelector('[data-f="ct"]')?.value||'').trim();
-    const tien = parseInt(tr.querySelector('[data-f="tien"]')?.dataset.raw||'0',10)||0;
-    if(loai&&ct) tr.style.background='#f0fff4'; // đã lưu thành công
-  });
+
+  if(updated > 0 && saved === 0) toast(`✅ Đã cập nhật ${updated} hóa đơn!`, 'success');
+  else if(saved > 0 && updated === 0) toast(`✅ Đã lưu ${saved} hóa đơn!`, 'success');
+  else toast(`✅ Đã lưu ${saved} mới, cập nhật ${updated} hóa đơn!`, 'success');
+
   // Render bảng HĐ trong ngày
   renderTodayInvoices();
 }
@@ -1831,7 +2483,9 @@ function saveAllRows() {
 // ══════════════════════════════
 function buildFilters() {
   const yearInvs = invoices.filter(i=>inActiveYear(i.ngay));
-  const cts = [...new Set(yearInvs.map(i=>i.congtrinh))].filter(Boolean).sort();
+  // Dropdown CT: lọc mềm — CT có bất kỳ phát sinh (HĐ/CC/Ứng) trong năm
+  const allCts = [...new Set(invoices.map(i=>i.congtrinh).filter(Boolean))].sort();
+  const cts = allCts.filter(ct => _entityInYear(ct, 'ct'));
   const loais = [...new Set(yearInvs.map(i=>i.loai))].filter(Boolean).sort();
   const months = [...new Set(yearInvs.map(i=>i.ngay?.slice(0,7)))].filter(Boolean).sort().reverse();
   const ctSel=document.getElementById('f-ct'); const cv=ctSel.value;
@@ -2088,6 +2742,8 @@ function renderSettings() {
       </div>`;
     grid.appendChild(card);
   });
+  // Render panel sao lưu
+  renderBackupList();
 }
 
 function renderItem(catId,item,idx) {
@@ -2442,6 +3098,104 @@ function updateTop() {
 function numFmt(n){ if(!n&&n!==0)return''; return parseInt(n,10).toLocaleString('vi-VN'); }
 function fmtM(n){ if(!n)return'0 đ'; return parseInt(n).toLocaleString('vi-VN')+' đ'; }
 function fmtS(n){ if(!n)return'0'; if(n>=1e9)return(n/1e9).toFixed(3).replace(/\.?0+$/,'')+' tỷ'; if(n>=1e6)return(n/1e6).toFixed(1).replace(/\.0$/,'')+' tr'; if(n>=1e3)return(n/1e3).toFixed(0)+'k'; return n.toLocaleString('vi-VN'); }
+// ── parseMoney: chuẩn hóa mọi dạng nhập tiền → số nguyên ─────
+// Xử lý: "1.000.000", "1,000,000", "1000000", "1tr", "1.5tr", "2tỷ"
+// Test: parseMoney("1.000.000")→1000000  parseMoney("1tr")→1000000
+//       parseMoney("1,5tr")→1500000      parseMoney("2tỷ")→2000000000
+function parseMoney(raw) {
+  if (raw === null || raw === undefined) return 0;
+  if (typeof raw === 'number') return Math.round(raw);
+  const s = String(raw).trim().toLowerCase().replace(/\s+/g,'');
+  if (!s) return 0;
+
+  // Đơn vị tỷ/tr/k
+  const unitMap = [
+    [/^([\d,.]+)tỷ$/,   1e9],
+    [/^([\d,.]+)ty$/,   1e9],
+    [/^([\d,.]+)b$/,    1e9],
+    [/^([\d,.]+)tr$/,   1e6],
+    [/^([\d,.]+)m$/,    1e6],
+    [/^([\d,.]+)k$/,    1e3],
+  ];
+  for (const [rx, mult] of unitMap) {
+    const m = s.match(rx);
+    if (m) {
+      const num = parseFloat(m[1].replace(/[,.]/g, s.includes(',') && s.includes('.') ?
+        (s.indexOf(',') < s.indexOf('.') ? (v => v===','?'':'.') : (v => v==='.'?'':'.')) :
+        // Nếu chỉ có dấu '.' → dấu phân cách nghìn VN → xóa
+        // Nếu chỉ có dấu ',' → dấu thập phân → giữ là '.'
+        (m[1].includes(',') ? (v => v===','?'.':'') : (v => v==='.'?'':''))
+      ));
+      return Math.round(num * mult);
+    }
+  }
+
+  // Dạng số thuần: xóa tất cả dấu phân cách nghìn
+  // Logic: nếu có cả '.' và ',' → cái nào ở sau cùng là thập phân
+  let clean = s;
+  const lastDot   = clean.lastIndexOf('.');
+  const lastComma = clean.lastIndexOf(',');
+
+  if (lastDot > -1 && lastComma > -1) {
+    // Có cả 2: cái ở sau cùng là thập phân
+    if (lastDot > lastComma) {
+      clean = clean.replace(/,/g, '');           // ',' = nghìn
+    } else {
+      clean = clean.replace(/\./g, '').replace(',', '.'); // '.' = nghìn, ',' = thập phân
+    }
+  } else if (lastDot > -1) {
+    // Chỉ có '.': nếu phần sau '.' là đúng 3 chữ số → nghìn VN, không thì thập phân
+    const afterDot = clean.slice(lastDot + 1);
+    if (afterDot.length === 3 && /^\d{3}$/.test(afterDot)) {
+      clean = clean.replace(/\./g, ''); // nghìn
+    }
+    // else giữ nguyên là thập phân
+  } else if (lastComma > -1) {
+    const afterComma = clean.slice(lastComma + 1);
+    if (afterComma.length === 3 && /^\d{3}$/.test(afterComma)) {
+      clean = clean.replace(/,/g, ''); // nghìn
+    } else {
+      clean = clean.replace(',', '.'); // thập phân
+    }
+  }
+
+  const n = parseFloat(clean);
+  return isNaN(n) ? 0 : Math.round(n);
+}
+
+// ── Test cases (chạy trong Console để verify) ─────────────────
+// Gọi: _testParseMoney() trong Console
+function _testParseMoney() {
+  const cases = [
+    ['1000000',     1000000],
+    ['1.000.000',   1000000],
+    ['1,000,000',   1000000],
+    ['1.000',       1000],
+    ['1,000',       1000],
+    ['1500000',     1500000],
+    ['1.5tr',       1500000],
+    ['1,5tr',       1500000],
+    ['2tr',         2000000],
+    ['500k',        500000],
+    ['1.5tỷ',       1500000000],
+    ['2tỷ',         2000000000],
+    ['630000',      630000],
+    ['0',           0],
+    ['',            0],
+    [null,          0],
+    [1000000,       1000000],  // number passthrough
+  ];
+  let pass = 0, fail = 0;
+  cases.forEach(([input, expected]) => {
+    const got = parseMoney(input);
+    const ok  = got === expected;
+    if (!ok) console.error(`❌ parseMoney(${JSON.stringify(input)}) = ${got}, expected ${expected}`);
+    else pass++;
+    if (!ok) fail++;
+  });
+  console.log(`parseMoney tests: ${pass}/${cases.length} passed${fail?', '+fail+' FAILED':' ✅'}`);
+}
+
 function x(s){ if(!s)return''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function toast(msg,type='') { const t=document.getElementById('toast'); t.textContent=msg; t.className='toast '+(type?type:''); t.classList.add('show'); clearTimeout(t._to); t._to=setTimeout(()=>t.classList.remove('show'),2800); }
 
@@ -3078,11 +3832,14 @@ function pasteCCWeek(){
 
 // ─── CT selector ──────────────────────────────────────────────────
 function populateCCCtSel(){
-  const allCts=[...new Set([...cats.congTrinh,...ccData.map(w=>w.ct)].filter(Boolean))].sort();
-  const sel=document.getElementById('cc-ct-sel');
-  const cur=sel.value;
-  sel.innerHTML='<option value="">-- Chọn công trình --</option>'+
-    allCts.map(v=>`<option value="${x(v)}" ${v===cur?'selected':''}>${x(v)}</option>`).join('');
+  // Lấy tất cả CT từ danh mục + ccData
+  const allCts = [...new Set([...cats.congTrinh, ...ccData.map(w=>w.ct)].filter(Boolean))].sort();
+  // Lọc mềm: chỉ hiện CT có phát sinh trong năm đang chọn (hoặc "Tất cả năm")
+  const filtered = allCts.filter(ct => _entityInYear(ct, 'ct'));
+  const sel = document.getElementById('cc-ct-sel');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">-- Chọn công trình --</option>' +
+    filtered.map(v => `<option value="${x(v)}" ${v===cur?'selected':''}>${x(v)}</option>`).join('');
 }
 
 function onCCCtSelChange(){
@@ -3373,22 +4130,64 @@ function onYearChange() {
 }
 
 function _refreshAllTabs() {
-  const activePage=document.querySelector('.page.active');
-  if(!activePage) return;
-  const pid=activePage.id.replace('page-','');
-  if(pid==='tatca') { buildFilters(); filterAndRender(); renderTrash(); }
-  if(pid==='chamcong') { renderCCHistory(); renderCCTLT(); }
-  if(pid==='nhapung') { buildUngFilters(); filterAndRenderUng(); }
-  if(pid==='ct') renderCtPage();
-  if(pid==='nhap') renderTodayInvoices();
+  // Refresh DATA cho tất cả tab (không chỉ tab đang active)
+  // → đảm bảo khi đổi năm, mọi tab đều nhất quán khi mở
+
+  // Tầng 1: Rebuild filter dropdowns theo năm mới
+  buildFilters();
+  buildUngFilters();
+  buildCCHistFilters();
+  populateCCCtSel();        // dropdown CT trong Chấm Công
+  tbPopulateSels();         // dropdown CT trong Thiết Bị
+
+  // Tầng 2: Render lại nội dung TẤT CẢ các tab
+  filterAndRender();        // Tất cả CP
+  renderTrash();
+  filterAndRenderUng();     // Tiền Ứng
+  renderCtPage();           // Tổng CP CT
+  renderCCHistory();        // Lịch sử CC
+  renderCCTLT();            // Tổng lương tuần
+  renderTodayInvoices();    // HĐ trong ngày (tab Nhập)
+  tbRenderList();           // Thiết Bị
+  renderDashboard();        // Dashboard
+
+  // Topbar tổng
   updateTop();
 }
 
 // ── Lọc năm helper ────────────────────────────────────────────────
+// Tầng 1 — lọc tuyệt đối theo ngày của 1 record
 function inActiveYear(dateStr) {
   if(!dateStr) return false;
   if(activeYear === 0) return true; // "Tất cả năm"
-  return parseInt(dateStr.split('-')[0])===activeYear;
+  return parseInt(dateStr.split('-')[0]) === activeYear;
+}
+
+// Tầng 2 — lọc mềm cho entity (CT, CN, TB)
+// Trả về true nếu entity có BẤT KỲ phát sinh nào trong năm đang chọn
+// Dùng cho: dropdown, danh mục, tổng hợp
+function _entityInYear(name, type) {
+  if (activeYear === 0) return true; // "Tất cả năm" → hiện hết
+  if (!name) return false;
+  if (type === 'ct') {
+    // CT xuất hiện nếu có HĐ, CC, hoặc tiền ứng trong năm
+    return invoices.some(i  => inActiveYear(i.ngay)      && i.congtrinh === name)
+        || ccData.some(w    => inActiveYear(w.fromDate)   && w.ct        === name)
+        || ungRecords.some(r => inActiveYear(r.ngay)      && r.congtrinh === name);
+  }
+  if (type === 'cn') {
+    // Công nhân xuất hiện nếu có tuần chấm công trong năm
+    return ccData.some(w => inActiveYear(w.fromDate)
+        && (w.workers || []).some(wk => wk.name === name));
+  }
+  if (type === 'tb') {
+    // Thiết bị: hiện nếu CT của nó hoạt động trong năm HOẶC đang hoạt động
+    return tbData.some(r => r.ten === name && (
+      r.tinhtrang === 'Đang hoạt động'
+      || _entityInYear(r.ct, 'ct')
+    ));
+  }
+  return true;
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -3787,15 +4586,20 @@ let tbData = load('tb_v1', []);
 // ── Populate selects ──────────────────────────────────────────────
 function tbPopulateSels() {
   const allCts = [...new Set([...cats.congTrinh, ...tbData.map(r=>r.ct)].filter(Boolean))].sort();
+  // Lọc mềm: CT có phát sinh trong năm đang chọn
+  const filtered = allCts.filter(ct => _entityInYear(ct, 'ct'));
+
   const sel = document.getElementById('tb-ct-sel');
   const cur = sel.value;
+  // Select nhập mới: dùng allCts (không lọc năm — cho phép gán TB vào CT bất kỳ)
   sel.innerHTML = '<option value="">-- Chọn công trình --</option>' +
     allCts.map(v=>`<option value="${x(v)}" ${v===cur?'selected':''}>${x(v)}</option>`).join('');
 
+  // Filter danh sách: chỉ CT có liên quan năm đang chọn
   const fSel = document.getElementById('tb-filter-ct');
   const fCur = fSel.value;
   fSel.innerHTML = '<option value="">Tất cả công trình</option>' +
-    allCts.map(v=>`<option value="${x(v)}" ${v===fCur?'selected':''}>${x(v)}</option>`).join('');
+    filtered.map(v=>`<option value="${x(v)}" ${v===fCur?'selected':''}>${x(v)}</option>`).join('');
 }
 
 // ── Build nhập bảng ───────────────────────────────────────────────
@@ -3916,6 +4720,12 @@ function tbRenderList() {
   let filtered = tbData.filter(r => {
     if (fCt && r.ct !== fCt) return false;
     if (fTt && r.tinhtrang !== fTt) return false;
+    // Lọc mềm theo năm: TB của CT có phát sinh năm đang chọn, HOẶC đang hoạt động
+    if (activeYear !== 0) {
+      const ctActive = _entityInYear(r.ct, 'ct');
+      const isRunning = r.tinhtrang === 'Đang hoạt động';
+      if (!ctActive && !isRunning) return false;
+    }
     return true;
   });
 
@@ -4767,6 +5577,295 @@ Thao tác này không thể hoàn tác!`)) return;
 
   toast(`🗑️ Đã xóa: ${msg.join(', ')}`, 'success');
 }
+
+
+// ══════════════════════════════════════════════════════════════
+// [MODULE: DASHBOARD] — KPI · Bar chart · Pie · Top5 · By CT
+// Tìm nhanh: Ctrl+F → "MODULE: DASHBOARD"
+// ══════════════════════════════════════════════════════════════
+
+function renderDashboard() {
+  const yr   = activeYear;
+  const data = invoices.filter(i => inActiveYear(i.ngay));
+  if (!data.length) {
+    ['db-kpi-row','db-bar-chart','db-pie-chart','db-top5','db-by-ct'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = '<div class="db-empty">Chưa có dữ liệu cho năm ' + yr + '</div>';
+    });
+    return;
+  }
+
+  _dbKPI(data, yr);
+  _dbBarChart(data);
+  _dbPieChart(data);
+  _dbTop5(data);
+  _dbByCT(data);
+}
+
+// ── KPI Cards ─────────────────────────────────────────────────
+function _dbKPI(data, yr) {
+  const total   = data.reduce((s, i) => s + (i.thanhtien || i.tien || 0), 0);
+  const months  = new Set(data.map(i => i.ngay?.slice(0,7))).size;
+  const avgMonth= months ? Math.round(total / months) : 0;
+  const maxInv  = data.reduce((mx, i) => (i.thanhtien||i.tien||0) > (mx.thanhtien||mx.tien||0) ? i : mx, data[0]);
+  const ctSet   = new Set(data.map(i => i.congtrinh).filter(Boolean));
+
+  const cards = [
+    { label:'Tổng Chi Phí ' + yr,  val: fmtM(total),      sub: data.length + ' hóa đơn',         cls:'accent-gold'  },
+    { label:'TB / Tháng',           val: fmtM(avgMonth),   sub: months + ' tháng có phát sinh',    cls:'accent-blue'  },
+    { label:'HĐ Lớn Nhất',          val: fmtM(maxInv.thanhtien||maxInv.tien||0),
+                                    sub: (maxInv.nd||maxInv.loai||'').slice(0,30),                  cls:'accent-red'   },
+    { label:'Công Trình',           val: ctSet.size,       sub: 'đang theo dõi năm ' + yr,         cls:'accent-green' },
+  ];
+
+  document.getElementById('db-kpi-row').innerHTML = cards.map(k =>
+    `<div class="db-kpi-card ${k.cls}">
+       <div class="db-kpi-label">${k.label}</div>
+       <div class="db-kpi-val">${k.val}</div>
+       <div class="db-kpi-sub">${k.sub}</div>
+     </div>`
+  ).join('');
+}
+
+// ── Bar Chart theo tháng (SVG) ────────────────────────────────
+function _dbBarChart(data) {
+  // Tổng hợp theo tháng
+  const byMonth = {};
+  data.forEach(i => {
+    const m = i.ngay?.slice(0,7);
+    if (!m) return;
+    byMonth[m] = (byMonth[m] || 0) + (i.thanhtien || i.tien || 0);
+  });
+  const months = Object.keys(byMonth).sort();
+  if (!months.length) return;
+
+  const vals    = months.map(m => byMonth[m]);
+  const maxVal  = Math.max(...vals);
+  const H       = 160;  // chiều cao cột max
+  const colW    = Math.max(28, Math.min(60, Math.floor(620 / months.length) - 6));
+  const gap     = 5;
+  const svgW    = months.length * (colW + gap);
+
+  const bars = months.map((m, i) => {
+    const h    = maxVal ? Math.round((vals[i] / maxVal) * H) : 2;
+    const x    = i * (colW + gap);
+    const y    = H - h;
+    const lbl  = m.slice(5);   // "01"→"T1"
+    const amt  = vals[i] >= 1e9 ? (vals[i]/1e9).toFixed(1)+'tỷ'
+               : vals[i] >= 1e6 ? Math.round(vals[i]/1e6)+'tr' : fmtS(vals[i]);
+    return `
+      <g>
+        <rect x="${x}" y="${y}" width="${colW}" height="${h}"
+              rx="3" fill="var(--gold)" opacity=".85">
+          <title>${m}: ${fmtM(vals[i])}</title>
+        </rect>
+        <text x="${x + colW/2}" y="${y - 4}" text-anchor="middle"
+              font-size="9" fill="var(--ink2)">${h > 14 ? amt : ''}</text>
+        <text x="${x + colW/2}" y="${H + 14}" text-anchor="middle"
+              font-size="9" fill="var(--ink3)">T${parseInt(lbl)}</text>
+      </g>`;
+  }).join('');
+
+  document.getElementById('db-bar-chart').innerHTML =
+    `<svg viewBox="0 -10 ${svgW} ${H + 28}" width="100%" class="db-pie-svg"
+          style="min-width:${Math.min(svgW,300)}px;max-width:100%">
+       ${bars}
+       <line x1="0" y1="${H}" x2="${svgW}" y2="${H}" stroke="var(--line)" stroke-width="1"/>
+     </svg>`;
+}
+
+// ── Pie Chart tỷ trọng (SVG) ─────────────────────────────────
+function _dbPieChart(data) {
+  // Nhóm theo loại — gộp loại nhỏ vào "Khác"
+  const COLORS = ['#f0b429','#1db954','#4a90d9','#e74c3c','#9b59b6','#e67e22','#aaa'];
+  const KEY_TYPES = ['Nhân Công','Vật Liệu XD','Thầu Phụ','Sắt Thép','Đổ Bê Tông'];
+
+  const byType = {};
+  data.forEach(i => {
+    const k = KEY_TYPES.includes(i.loai) ? i.loai : 'Khác';
+    byType[k] = (byType[k] || 0) + (i.thanhtien || i.tien || 0);
+  });
+
+  const total   = Object.values(byType).reduce((s,v) => s+v, 0);
+  const entries = Object.entries(byType)
+    .sort((a,b) => b[1]-a[1])
+    .map(([name, val], i) => ({ name, val, pct: val/total, color: COLORS[i % COLORS.length] }));
+
+  // Vẽ SVG pie
+  const R = 70, CX = 80, CY = 80;
+  let startAngle = -Math.PI / 2;
+  const slices = entries.map(e => {
+    const angle = e.pct * Math.PI * 2;
+    const x1 = CX + R * Math.cos(startAngle);
+    const y1 = CY + R * Math.sin(startAngle);
+    startAngle += angle;
+    const x2 = CX + R * Math.cos(startAngle);
+    const y2 = CY + R * Math.sin(startAngle);
+    const large = angle > Math.PI ? 1 : 0;
+    return `<path d="M${CX},${CY} L${x1.toFixed(1)},${y1.toFixed(1)}
+              A${R},${R} 0 ${large},1 ${x2.toFixed(1)},${y2.toFixed(1)} Z"
+              fill="${e.color}" stroke="#fff" stroke-width="2">
+              <title>${e.name}: ${Math.round(e.pct*100)}%</title>
+            </path>`;
+  }).join('');
+
+  const legend = entries.map(e =>
+    `<div class="db-legend-row">
+       <div class="db-legend-dot" style="background:${e.color}"></div>
+       <span style="flex:1;color:var(--ink2)">${e.name}</span>
+       <span class="db-legend-pct" style="color:${e.color}">${Math.round(e.pct*100)}%</span>
+     </div>`
+  ).join('');
+
+  document.getElementById('db-pie-chart').innerHTML =
+    `<svg viewBox="0 0 160 160" width="140" height="140" class="db-pie-svg">${slices}</svg>
+     <div class="db-legend">${legend}</div>`;
+}
+
+// ── Top 5 hóa đơn lớn nhất ────────────────────────────────────
+function _dbTop5(data) {
+  const top5 = [...data]
+    .sort((a,b) => (b.thanhtien||b.tien||0) - (a.thanhtien||a.tien||0))
+    .slice(0, 5);
+  const max  = top5[0] ? (top5[0].thanhtien||top5[0].tien||0) : 1;
+
+  document.getElementById('db-top5').innerHTML = top5.map((inv, i) => {
+    const amt = inv.thanhtien || inv.tien || 0;
+    const pct = Math.round(amt / max * 100);
+    return `<div class="db-rank-row">
+      <div class="db-rank-num ${i===0?'top1':''}">${i===0?'🥇':i+1}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+          ${inv.nd || inv.loai || '—'}
+        </div>
+        <div style="font-size:10px;color:var(--ink3)">${inv.ngay} · ${inv.congtrinh||'—'}</div>
+        <div class="db-rank-bar-bg" style="margin-top:4px">
+          <div class="db-rank-bar-fill" style="width:${pct}%"></div>
+        </div>
+      </div>
+      <div class="db-rank-amt">${fmtM(amt)}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── Chi phí theo Công Trình ────────────────────────────────────
+function _dbByCT(data) {
+  const byCT = {};
+  data.forEach(i => {
+    const k = i.congtrinh || '(Không rõ)';
+    byCT[k] = (byCT[k] || 0) + (i.thanhtien || i.tien || 0);
+  });
+  const sorted = Object.entries(byCT).sort((a,b) => b[1]-a[1]);
+  const max    = sorted[0]?.[1] || 1;
+
+  document.getElementById('db-by-ct').innerHTML = sorted.map(([ct, amt], i) => {
+    const pct = Math.round(amt / max * 100);
+    return `<div class="db-rank-row">
+      <div class="db-rank-num ${i===0?'top1':''}">${i+1}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"
+             title="${ct}">${ct}</div>
+        <div class="db-rank-bar-bg" style="margin-top:4px">
+          <div class="db-rank-bar-fill" style="width:${pct}%;background:${i===0?'var(--green)':'var(--gold)'}"></div>
+        </div>
+      </div>
+      <div class="db-rank-amt">${fmtM(amt)}</div>
+    </div>`;
+  }).join('');
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// [MODULE: KEYBOARD NAV] — Entry table & Ung table
+// Enter = xuống ô dưới, Ctrl+Enter = lưu, Shift+Enter = thêm dòng
+// Tìm nhanh: Ctrl+F → "MODULE: KEYBOARD NAV"
+// ══════════════════════════════════════════════════════════════
+
+(function _initKeyboardNav() {
+
+  // Các selector ô có thể focus trong bảng nhập
+  const FOCUSABLE = 'input:not([readonly]):not([disabled]), select:not([disabled]), textarea:not([disabled])';
+
+  // Lấy tất cả ô focusable trong 1 tbody theo thứ tự DOM
+  function _getCells(tbody) {
+    return Array.from(tbody.querySelectorAll(FOCUSABLE));
+  }
+
+  function _handleKey(e, tbodyId, saveFn, addRowFn) {
+    const tbody = document.getElementById(tbodyId);
+    if (!tbody) return;
+
+    // Ctrl+Enter → Lưu
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      saveFn();
+      return;
+    }
+
+    // Shift+Enter → Thêm dòng mới
+    if (e.key === 'Enter' && e.shiftKey) {
+      e.preventDefault();
+      addRowFn();
+      // Focus vào ô đầu tiên của dòng mới
+      setTimeout(() => {
+        const rows = tbody.querySelectorAll('tr');
+        const lastRow = rows[rows.length - 1];
+        if (lastRow) {
+          const first = lastRow.querySelector(FOCUSABLE);
+          if (first) first.focus();
+        }
+      }, 50);
+      return;
+    }
+
+    // Enter đơn → xuống ô tiếp theo trong cùng cột (hoặc ô kế tiếp nếu cuối)
+    if (e.key === 'Enter' && !e.ctrlKey && !e.shiftKey) {
+      // Không áp dụng cho select (Enter mở dropdown là hành vi tự nhiên)
+      if (e.target.tagName === 'SELECT') return;
+      e.preventDefault();
+
+      const cells = _getCells(tbody);
+      const curIdx = cells.indexOf(e.target);
+      if (curIdx === -1) return;
+
+      // Tìm ô cùng cột dòng dưới
+      const curTr = e.target.closest('tr');
+      const curTds = Array.from(curTr.querySelectorAll('td'));
+      const curTdIdx = curTds.findIndex(td => td.contains(e.target));
+
+      const nextTr = curTr.nextElementSibling;
+      if (nextTr) {
+        const nextTds = Array.from(nextTr.querySelectorAll('td'));
+        const targetTd = nextTds[curTdIdx] || nextTds[nextTds.length - 1];
+        const targetInput = targetTd?.querySelector(FOCUSABLE);
+        if (targetInput) { targetInput.focus(); return; }
+      }
+
+      // Không có dòng dưới → focus ô tiếp theo
+      const nextCell = cells[curIdx + 1];
+      if (nextCell) nextCell.focus();
+    }
+  }
+
+  // Đợi DOM sẵn sàng rồi bind
+  document.addEventListener('keydown', function(e) {
+    const active = document.activeElement;
+    if (!active) return;
+
+    // Bảng Nhập HĐ
+    if (active.closest('#entry-tbody')) {
+      _handleKey(e, 'entry-tbody', saveAllRows, () => addRows(1));
+      return;
+    }
+
+    // Bảng Tiền Ứng
+    if (active.closest('#ung-tbody')) {
+      _handleKey(e, 'ung-tbody', saveAllUngRows, () => addUngRows(1));
+      return;
+    }
+  });
+
+})();
 
 </script>
 
