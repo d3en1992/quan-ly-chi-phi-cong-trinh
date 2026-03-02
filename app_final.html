@@ -438,6 +438,12 @@ select.cell-input {
   transition: all 0.12s;
 }
 .np-shortcut:active { background: rgba(255,255,255,0.18); color: #fff; }
+#numpad-day-keys {
+  display: none;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  padding: 0 2px;
+}
 #numpad-keys {
   display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
   padding: 6px 10px 12px;
@@ -1351,10 +1357,32 @@ function buildYearSelect() {
   invoices.forEach(i=>{ if(i.ngay) years.add(parseInt(i.ngay.split('-')[0])); });
   ungRecords.forEach(u=>{ if(u.ngay) years.add(parseInt(u.ngay.split('-')[0])); });
   ccData.forEach(w=>{ if(w.fromDate) years.add(parseInt(w.fromDate.split('-')[0])); });
-  const sorted=[...years].sort((a,b)=>b-a);
-  const sel=document.getElementById('global-year');
+  _renderYearSelect(years);
+
+  // Nếu Firebase ready → fetch danh sách doc để biết có năm nào
+  if(fbReady()) {
+    fetch(`${FS_BASE()}?key=${FB_CONFIG.apiKey}&pageSize=20`)
+      .then(r=>r.json()).then(data=>{
+        if(data.documents) {
+          data.documents.forEach(doc=>{
+            // doc.name = ".../cpct_data/y2025" or ".../cpct_data/y2026"
+            const seg = doc.name.split('/').pop();
+            if(seg && seg.startsWith('y')) {
+              const yr = parseInt(seg.slice(1));
+              if(!isNaN(yr) && yr > 2000 && yr < 2100) years.add(yr);
+            }
+          });
+          _renderYearSelect(years);
+        }
+      }).catch(()=>{});
+  }
+}
+
+function _renderYearSelect(years) {
+  const sorted = [...years].sort((a,b)=>b-a);
+  const sel = document.getElementById('global-year');
   if(!sel) return;
-  sel.innerHTML=sorted.map(y=>`<option value="${y}" ${y===activeYear?'selected':''}>${y}</option>`).join('');
+  sel.innerHTML = sorted.map(y=>`<option value="${y}" ${y===activeYear?'selected':''}>${y}</option>`).join('');
 }
 
 function saveCats(catId) {
@@ -3069,25 +3097,26 @@ let activeYear = new Date().getFullYear();
 
 
 function onYearChange() {
-  const sel=document.getElementById('global-year');
-  if(sel) activeYear=parseInt(sel.value);
+  const sel = document.getElementById('global-year');
+  if(sel) activeYear = parseInt(sel.value);
 
-  // Kiểm tra xem có dữ liệu năm này trong local chưa
-  const ys=String(activeYear);
+  const ys = String(activeYear);
+  // Kiểm tra đã có dữ liệu năm này ở local chưa
   const hasLocal = invoices.some(i=>i.ngay&&i.ngay.startsWith(ys))
     || ccData.some(w=>w.fromDate&&w.fromDate.startsWith(ys))
     || ungRecords.some(u=>u.ngay&&u.ngay.startsWith(ys));
 
-  if(!hasLocal && getMasterId()) {
-    // Tải dữ liệu năm này từ cloud
+  if(!hasLocal && fbReady()) {
+    // Tải năm này từ Firebase
     showSyncBanner('⏳ Đang tải dữ liệu năm ' + activeYear + '...');
     gsLoadAll(function(data) {
-      if(data) {
-        invoices   = load('inv_v3', []);
-        ungRecords = load('ung_v1', []);
-        ccData     = load('cc_v2', []);
-        _refreshAllTabs();
-      }
+      invoices   = load('inv_v3', []);
+      ungRecords = load('ung_v1', []);
+      ccData     = load('cc_v2', []);
+      tbData     = load('tb_v1', []);
+      buildYearSelect();
+      _refreshAllTabs();
+      hideSyncBanner();
     });
     return;
   }
@@ -3275,6 +3304,8 @@ function closeNumpad() {
 }
 
 function _npCalcResult() {
+  const isDay = _npTarget && _npTarget.classList.contains('cc-day-input');
+  if(isDay) return parseFloat(_npRaw)||0;
   const right = parseInt(_npRaw)||0;
   if(_npLeft !== null && _npOp) {
     if(_npOp==='+') return _npLeft + right;
@@ -3286,63 +3317,72 @@ function _npCalcResult() {
 }
 
 function _npRefresh() {
-  // Cập nhật shortcuts: nếu là ô ngày công → hiện 0, 0.5, 1 thay vì +100K +200K...
-  const shortcutsEl = document.getElementById('numpad-shortcuts');
-  if(shortcutsEl && _npTarget) {
-    const isDay = _npTarget.classList.contains('cc-day-input');
-    if(isDay) {
-      shortcutsEl.innerHTML = `
-        <button class="np-shortcut" style="font-weight:700" onclick="_npSetDayVal(0)">= 0</button>
-        <button class="np-shortcut" style="color:#4cde80;font-weight:700" onclick="_npSetDayVal(0.5)">= ½</button>
-        <button class="np-shortcut" style="color:#4cde80;font-weight:700" onclick="_npSetDayVal(1)">= 1</button>
-        <button class="np-shortcut" style="color:#4cde80" onclick="_npSetDayVal(1.5)">= 1.5</button>
-        <button class="np-shortcut" style="color:#4cde80" onclick="_npSetDayVal(2)">= 2</button>`;
-    } else if(!shortcutsEl.querySelector('.orig-shortcuts')) {
-      // Restore original shortcuts if switched from day mode
-      shortcutsEl.innerHTML = `
-        <button class="np-shortcut orig-shortcuts" onclick="numpadShortcut(100000)">+100K</button>
-        <button class="np-shortcut orig-shortcuts" onclick="numpadShortcut(200000)">+200K</button>
-        <button class="np-shortcut orig-shortcuts" onclick="numpadShortcut(500000)">+500K</button>
-        <button class="np-shortcut orig-shortcuts" onclick="numpadShortcut(1000000)">+1Tr</button>
-        <button class="np-shortcut orig-shortcuts" onclick="numpadShortcut(2000000)">+2Tr</button>
-        <button class="np-shortcut orig-shortcuts" onclick="numpadShortcut(5000000)">+5Tr</button>
-        <button class="np-shortcut orig-shortcuts" onclick="numpadShortcut(10000000)">+10Tr</button>`;
-    }
-  }
   const txt = document.getElementById('numpad-text');
   if(!txt) return;
-  const raw = parseInt(_npRaw)||0;
-  if(_npLeft !== null && _npOp) {
-    const leftFmt = numFmt(_npLeft);
-    const rightStr = (_npRaw && _npRaw!=='0') ? numFmt(parseInt(_npRaw)||0) : '?';
-    txt.textContent = leftFmt + ' ' + _npOp + ' ' + rightStr;
+  const isDay = _npTarget && _npTarget.classList.contains('cc-day-input');
+  if(isDay) {
+    // Hiện giá trị thập phân thực sự (không format tiền)
+    txt.textContent = _npRaw || '0';
+    const saveBtn = document.getElementById('numpad-save-btn');
+    if(saveBtn) saveBtn.textContent = 'Lưu  ' + (_npRaw||'0') + ' công';
+    // Ẩn/hiện layout numpad day vs tiền
+    const keysEl = document.getElementById('numpad-keys');
+    const dayKeysEl = document.getElementById('numpad-day-keys');
+    const shortcutsEl2 = document.getElementById('numpad-shortcuts');
+    if(keysEl) keysEl.style.display = 'none';
+    if(dayKeysEl) dayKeysEl.style.display = 'grid';
+    if(shortcutsEl2) shortcutsEl2.style.display = 'none';
   } else {
-    txt.textContent = raw ? numFmt(raw) : '0';
+    const keysEl = document.getElementById('numpad-keys');
+    const dayKeysEl = document.getElementById('numpad-day-keys');
+    const shortcutsEl2 = document.getElementById('numpad-shortcuts');
+    if(keysEl) keysEl.style.display = 'grid';
+    if(dayKeysEl) dayKeysEl.style.display = 'none';
+    if(shortcutsEl2) shortcutsEl2.style.display = 'flex';
+    const raw = parseInt(_npRaw)||0;
+    if(_npLeft !== null && _npOp) {
+      const leftFmt = numFmt(_npLeft);
+      const rightStr = (_npRaw && _npRaw!=='0') ? numFmt(parseInt(_npRaw)||0) : '?';
+      txt.textContent = leftFmt + ' ' + _npOp + ' ' + rightStr;
+    } else {
+      txt.textContent = raw ? numFmt(raw) : '0';
+    }
+    const val = _npCalcResult();
+    const saveBtn = document.getElementById('numpad-save-btn');
+    if(saveBtn) saveBtn.textContent = val ? 'Lưu  ' + numFmt(val) : 'Lưu';
   }
-  const val = _npCalcResult();
-  const saveBtn = document.getElementById('numpad-save-btn');
-  if(saveBtn) saveBtn.textContent = val ? 'Lưu  ' + numFmt(val) : 'Lưu';
 }
 
 function numpadKey(k) {
+  const isDay = _npTarget && _npTarget.classList.contains('cc-day-input');
   if(k==='C') {
     _npRaw='0'; _npOp=null; _npLeft=null;
   } else if(k==='⌫') {
     _npRaw = _npRaw.length > 1 ? _npRaw.slice(0,-1) : '0';
-  } else if(k==='000') {
-    _npRaw = _npRaw==='0' ? '0' : _npRaw + '000';
   } else if(k==='.') {
     if(!_npRaw.includes('.')) _npRaw += '.';
+  } else if(k==='000') {
+    _npRaw = _npRaw==='0' ? '0' : _npRaw + '000';
   } else if(['÷','×','−','+'].includes(k)) {
-    if(_npLeft!==null && _npOp && _npRaw!=='0') {
-      _npLeft = _npCalcResult(); _npRaw = '0';
-    } else {
-      _npLeft = parseInt(_npRaw)||0; _npRaw = '0';
+    if(!isDay) { // phép tính chỉ cho ô tiền
+      if(_npLeft!==null && _npOp && _npRaw!=='0') {
+        _npLeft = _npCalcResult(); _npRaw = '0';
+      } else {
+        _npLeft = parseInt(_npRaw)||0; _npRaw = '0';
+      }
+      _npOp = k;
     }
-    _npOp = k;
   } else {
-    _npRaw = _npRaw==='0' ? k : _npRaw + k;
-    if(_npRaw.length > 12) _npRaw = _npRaw.slice(0,12);
+    // Thêm chữ số
+    if(isDay) {
+      // Day: cho phép decimal tự do, tối đa 5 ký tự (e.g. "99.99")
+      if(_npRaw==='0' && k!=='.') _npRaw = k;
+      else _npRaw = _npRaw + k;
+      if(_npRaw.length > 5) _npRaw = _npRaw.slice(0,5);
+    } else {
+      _npRaw = _npRaw==='0' ? k : _npRaw + k;
+      if(_npRaw.length > 12) _npRaw = _npRaw.slice(0,12);
+    }
   }
   _npRefresh();
 }
@@ -3369,11 +3409,12 @@ function numpadDone() {
     const isNum = el.classList.contains('np-num-input');
 
     if(el.classList.contains('cc-day-input')) {
-      // CC ngày công: giá trị nhỏ (0, 0.5, 1, 2...)
-      const dayVal = Math.min(3, Math.max(0, val)); // clamp 0-3
+      // CC ngày công: đọc _npRaw trực tiếp để giữ decimal (0.5, 0.3, 11, 12...)
+      const rawStr = _npRaw || '0';
+      const dayVal = parseFloat(rawStr) || 0;
       el.value = dayVal || '';
-      el.classList.toggle('has-val', dayVal===1);
-      el.classList.toggle('half-val', dayVal>0 && dayVal<1);
+      el.classList.toggle('has-val', dayVal >= 1);
+      el.classList.toggle('half-val', dayVal > 0 && dayVal < 1);
       el.dataset.raw = dayVal;
       const tr2 = el.closest('tr');
       if(tr2) try { onCCDayKey(el); calcCCRow(tr2); updateCCSumRow && updateCCSumRow(); } catch(e){}
@@ -3834,6 +3875,27 @@ function tbExportCSV() {
       <button class="np-key digit" onclick="numpadKey('0')">0</button>
       <button class="np-key zero3" onclick="numpadKey('000')">000</button>
       <button class="np-key digit" onclick="numpadKey('.')">.</button>
+    </div>
+
+    <!-- Bàn phím riêng cho ô Ngày Công: chỉ số + dấu chấm, nhỏ gọn -->
+    <div id="numpad-day-keys" style="display:none;grid-template-columns:repeat(4,1fr);gap:6px;padding:0 2px">
+      <button class="np-key digit" onclick="numpadKey('7')" style="height:52px;font-size:22px">7</button>
+      <button class="np-key digit" onclick="numpadKey('8')" style="height:52px;font-size:22px">8</button>
+      <button class="np-key digit" onclick="numpadKey('9')" style="height:52px;font-size:22px">9</button>
+      <button class="np-key del"   onclick="numpadKey('⌫')" style="height:52px;font-size:20px">⌫</button>
+
+      <button class="np-key digit" onclick="numpadKey('4')" style="height:52px;font-size:22px">4</button>
+      <button class="np-key digit" onclick="numpadKey('5')" style="height:52px;font-size:22px">5</button>
+      <button class="np-key digit" onclick="numpadKey('6')" style="height:52px;font-size:22px">6</button>
+      <button class="np-key clear" onclick="numpadKey('C')"  style="height:52px;font-size:16px">C</button>
+
+      <button class="np-key digit" onclick="numpadKey('1')" style="height:52px;font-size:22px">1</button>
+      <button class="np-key digit" onclick="numpadKey('2')" style="height:52px;font-size:22px">2</button>
+      <button class="np-key digit" onclick="numpadKey('3')" style="height:52px;font-size:22px">3</button>
+      <button class="np-key done"  onclick="numpadDone()"   style="height:52px;font-size:22px;grid-row:span 2">✓</button>
+
+      <button class="np-key digit" onclick="numpadKey('0')" style="height:52px;font-size:22px;grid-column:span 2">0</button>
+      <button class="np-key digit" onclick="numpadKey('.')" style="height:52px;font-size:22px">.</button>
     </div>
   </div>
 </div>
