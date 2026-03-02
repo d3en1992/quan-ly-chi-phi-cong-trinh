@@ -467,8 +467,10 @@ select.cell-input {
 .np-key.done:active { background: #155c35; }
 .np-key.clear { background: #3a3835; color: rgba(255,255,255,0.7); font-size: 16px; }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
+<input type="file" id="import-file-input" accept=".xlsx,.xls" style="display:none" onchange="handleImportFile(event)">
 
 <!-- ── Bin ID Modal ── -->
 
@@ -484,6 +486,7 @@ select.cell-input {
       </select>
     </div>
     <div class="top-stat"><span class="top-stat-label">Tổng CP</span><span class="top-stat-val" id="top-total">0đ</span></div>
+    <button id="import-btn" onclick="openImportModal()" style="background:rgba(255,255,255,0.12);border:1.5px solid rgba(255,255,255,0.25);color:#fff;border-radius:8px;padding:7px 14px;font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;margin-right:6px">📥 Import</button>
     <button id="jb-btn" onclick="openBinModal()" style="background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.25);color:#fff;border-radius:7px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:'IBM Plex Sans',sans-serif;white-space:nowrap;transition:all .2s">☁️ Cloud</button>
   </div>
   <!-- Hàng 2: Nav tabs -->
@@ -3830,6 +3833,302 @@ function tbExportCSV() {
 
 // ── Init TB khi load trang ────────────────────────────────────────
 // (tbData đã load ở trên, tbBuildRows gọi khi goPage)
+
+
+// ══════════════════════════════════════════════════════════════
+// IMPORT EXCEL → FIREBASE
+// ══════════════════════════════════════════════════════════════
+
+function openImportModal() {
+  document.getElementById('import-file-input').click();
+}
+
+function handleImportFile(e) {
+  const file = e.target.files[0];
+  if(!file) return;
+  e.target.value = '';
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    try {
+      const wb = XLSX.read(ev.target.result, {type:'array'});
+      _processImportWorkbook(wb, file.name);
+    } catch(err) {
+      toast('❌ Không đọc được file Excel: ' + err.message, 'error');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function _processImportWorkbook(wb, filename) {
+  const result = { inv:[], ung:[], cc:[], tb:[], cats:{} };
+  let log = [];
+
+  // Helper: parse ngày YYYY-MM-DD hoặc Excel serial
+  function parseDate(v) {
+    if(!v) return '';
+    if(typeof v === 'number') {
+      // Excel date serial
+      const d = new Date(Math.round((v - 25569)*86400*1000));
+      return d.toISOString().slice(0,10);
+    }
+    const s = String(v).trim();
+    if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    // dd/mm/yyyy
+    const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+    if(m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+    return '';
+  }
+  function num(v) { return parseFloat(String(v||'').replace(/[^0-9.\-]/g,''))||0; }
+  function str(v) { return v ? String(v).trim() : ''; }
+  function sheetToRows(ws) {
+    return XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+  }
+
+  // ── Sheet 1: HoaDon / ChiPhi ──────────────────────────────
+  const s1name = wb.SheetNames.find(n=>n.includes('HoaDon')||n.includes('1_'));
+  if(s1name) {
+    const rows = sheetToRows(wb.Sheets[s1name]);
+    let dataStart = -1;
+    for(let i=0;i<rows.length;i++) {
+      const r = rows[i];
+      if(r[0] && /^\d{4}-\d{2}-\d{2}$/.test(String(r[0]).trim()) ||
+         (r[0] && String(r[0]).match(/^\d{4}[\-\/]\d/))) {
+        dataStart = i; break;
+      }
+      // Cũng check dạng ngày serial Excel
+      if(typeof r[0]==='number' && r[0]>40000 && r[0]<60000) {
+        dataStart = i; break;
+      }
+    }
+    if(dataStart >= 0) {
+      for(let i=dataStart; i<rows.length; i++) {
+        const r = rows[i];
+        const ngay = parseDate(r[0]);
+        const ct   = str(r[1]);
+        const loai = str(r[2]);
+        const tien = num(r[4]);
+        if(!ngay || !ct || !loai || !tien) continue;
+        result.inv.push({
+          id: Date.now() + Math.random(),
+          ngay, congtrinh:ct, loai, nd:str(r[3]),
+          tien, sl: num(r[5])||undefined,
+          thanhtien: tien * (num(r[5])||1),
+          nguoi:str(r[6]), ncc:str(r[7]), sohd:str(r[8]),
+          _ts: Date.now()
+        });
+      }
+      log.push(`✅ Hóa Đơn: ${result.inv.length} hàng`);
+    }
+  }
+
+  // ── Sheet 2: TienUng ─────────────────────────────────────
+  const s2name = wb.SheetNames.find(n=>n.includes('TienUng')||n.includes('2_'));
+  if(s2name) {
+    const rows = sheetToRows(wb.Sheets[s2name]);
+    let dataStart = -1;
+    for(let i=0;i<rows.length;i++) {
+      const r = rows[i];
+      if(parseDate(r[0])) { dataStart=i; break; }
+    }
+    if(dataStart >= 0) {
+      for(let i=dataStart; i<rows.length; i++) {
+        const r = rows[i];
+        const ngay = parseDate(r[0]);
+        const ct   = str(r[1]);
+        const tp   = str(r[2]);
+        const tien = num(r[3]);
+        if(!ngay || !ct || !tp || !tien) continue;
+        result.ung.push({ id:Date.now()+Math.random(), ngay, congtrinh:ct, tp, tien, nd:str(r[4]), _ts:Date.now() });
+      }
+      log.push(`✅ Tiền Ứng: ${result.ung.length} hàng`);
+    }
+  }
+
+  // ── Sheet 3: ChamCong ─────────────────────────────────────
+  const s3name = wb.SheetNames.find(n=>n.includes('ChamCong')||n.includes('3_'));
+  if(s3name) {
+    const rows = sheetToRows(wb.Sheets[s3name]);
+    let dataStart = -1;
+    for(let i=0;i<rows.length;i++) {
+      const r = rows[i];
+      if(parseDate(r[0])) { dataStart=i; break; }
+    }
+    // Group theo fromDate + ct
+    const weekMap = {};
+    if(dataStart >= 0) {
+      for(let i=dataStart; i<rows.length; i++) {
+        const r = rows[i];
+        const fromDate = parseDate(r[0]);
+        const ct = str(r[1]);
+        const name = str(r[2]);
+        const luong = num(r[3]);
+        if(!fromDate || !ct || !name) continue;
+        const key = fromDate+'|'+ct;
+        if(!weekMap[key]) weekMap[key] = { id:Date.now()+Math.random(), fromDate, toDate:'', ct, workers:[] };
+        const d = [num(r[6]),num(r[7]),num(r[8]),num(r[9]),num(r[10]),num(r[11]),num(r[12])];
+        weekMap[key].workers.push({ name, luong, phucap:num(r[4]), hdmuale:num(r[5]), d, nd:str(r[13]) });
+      }
+    }
+    result.cc = Object.values(weekMap);
+    if(result.cc.length) log.push(`✅ Chấm Công: ${result.cc.length} tuần, ${result.cc.reduce((s,w)=>s+w.workers.length,0)} CN`);
+  }
+
+  // ── Sheet 4: ThietBi ─────────────────────────────────────
+  const s4name = wb.SheetNames.find(n=>n.includes('ThietBi')||n.includes('4_'));
+  if(s4name) {
+    const rows = sheetToRows(wb.Sheets[s4name]);
+    let dataStart = -1;
+    for(let i=0;i<rows.length;i++) {
+      const r = rows[i];
+      if(str(r[0]) && str(r[1]) && !['CÔNG TRÌNH','CONGTRINH'].includes(str(r[0]).toUpperCase())) {
+        dataStart=i; break;
+      }
+    }
+    if(dataStart >= 0) {
+      for(let i=dataStart; i<rows.length; i++) {
+        const r = rows[i];
+        const ct = str(r[0]); const ten = str(r[1]);
+        if(!ct || !ten) continue;
+        result.tb.push({ id:Date.now()+Math.random(), ct, ten,
+          soluong: num(r[2])||1, tinhtrang: str(r[3])||'Đang hoạt động',
+          nguoi:str(r[4]), ngay:parseDate(r[5])||'', ghichu:str(r[6]) });
+      }
+      log.push(`✅ Thiết Bị: ${result.tb.length} hàng`);
+    }
+  }
+
+  // ── Sheet 5: DanhMuc ─────────────────────────────────────
+  const s5name = wb.SheetNames.find(n=>n.includes('DanhMuc')||n.includes('5_'));
+  if(s5name) {
+    const rows = sheetToRows(wb.Sheets[s5name]);
+    const newCats = { ct:[], loai:[], ncc:[], nguoi:[] };
+    for(let i=2; i<rows.length; i++) {
+      const r = rows[i];
+      if(str(r[0])) newCats.ct.push(str(r[0]));
+      if(str(r[1])) newCats.loai.push(str(r[1]));
+      if(str(r[2])) newCats.ncc.push(str(r[2]));
+      if(str(r[3])) newCats.nguoi.push(str(r[3]));
+    }
+    result.cats = newCats;
+    log.push(`✅ Danh Mục: ${newCats.ct.length} CT, ${newCats.loai.length} Loại, ${newCats.ncc.length} NCC`);
+  }
+
+  const total = result.inv.length + result.ung.length + result.cc.length + result.tb.length;
+  if(total === 0 && Object.keys(result.cats).length === 0) {
+    toast('⚠️ Không tìm thấy dữ liệu hợp lệ trong file!', 'error'); return;
+  }
+
+  _showImportPreview(result, log, filename);
+}
+
+function _showImportPreview(result, log, filename) {
+  let ov = document.getElementById('import-modal-overlay');
+  if(!ov) {
+    ov = document.createElement('div');
+    ov.id = 'import-modal-overlay';
+    ov.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center';
+    ov.onclick = function(e) { if(e.target===this) ov.style.display='none'; };
+    document.body.appendChild(ov);
+  }
+
+  // Đếm theo năm
+  const years = new Set();
+  result.inv.forEach(i=>{ if(i.ngay) years.add(i.ngay.slice(0,4)); });
+  result.ung.forEach(i=>{ if(i.ngay) years.add(i.ngay.slice(0,4)); });
+  result.cc.forEach(i=>{ if(i.fromDate) years.add(i.fromDate.slice(0,4)); });
+
+  ov.innerHTML = `<div onclick="event.stopPropagation()" style="max-width:480px;width:95vw;background:#fff;border-radius:16px;padding:24px;font-family:'IBM Plex Sans',sans-serif;box-shadow:0 12px 48px rgba(0,0,0,.18);max-height:90vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h3 style="font-size:16px;font-weight:800;margin:0">📥 Xem Trước Import</h3>
+      <button onclick="document.getElementById('import-modal-overlay').style.display='none'" style="background:none;border:none;font-size:22px;cursor:pointer;color:#888">✕</button>
+    </div>
+    <div style="background:#f0f4ff;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:#333">
+      <strong>📄 File:</strong> ${filename}<br>
+      <strong>📅 Năm dữ liệu:</strong> ${[...years].sort().join(', ')||'—'}
+    </div>
+    <div style="margin-bottom:14px">
+      ${log.map(l=>`<div style="padding:5px 10px;margin-bottom:4px;background:#f0fff4;border-left:3px solid #1a7a45;border-radius:4px;font-size:12px">${l}</div>`).join('')}
+    </div>
+    <div style="background:#fff3cd;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:#856404">
+      ⚠️ Dữ liệu mới sẽ được <strong>gộp</strong> vào dữ liệu hiện có (không xoá dữ liệu cũ).
+      ${fbReady() ? '<br>Sau khi nhập sẽ tự động lưu lên Firebase.' : '<br>Chưa kết nối Firebase — chỉ lưu local.'}
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="document.getElementById('import-modal-overlay').style.display='none'" style="flex:1;padding:11px;border-radius:8px;border:1.5px solid #ccc;background:#fff;font-family:inherit;font-size:13px;cursor:pointer">Huỷ</button>
+      <button onclick="_confirmImport()" style="flex:2;padding:11px;border-radius:8px;border:none;background:#1a1814;color:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">✅ Xác Nhận Import</button>
+    </div>
+  </div>`;
+  ov.style.display = 'flex';
+  ov._importResult = result;
+}
+
+function _confirmImport() {
+  const ov = document.getElementById('import-modal-overlay');
+  const result = ov._importResult;
+  if(!result) return;
+  ov.style.display = 'none';
+
+  // Merge vào localStorage
+  if(result.inv.length) {
+    const existing = load('inv_v3',[]);
+    localStorage.setItem('inv_v3', JSON.stringify([...result.inv, ...existing]));
+    invoices = load('inv_v3',[]);
+  }
+  if(result.ung.length) {
+    const existing = load('ung_v1',[]);
+    localStorage.setItem('ung_v1', JSON.stringify([...result.ung, ...existing]));
+    ungRecords = load('ung_v1',[]);
+  }
+  if(result.cc.length) {
+    const existing = load('cc_v2',[]);
+    localStorage.setItem('cc_v2', JSON.stringify([...result.cc, ...existing]));
+    ccData = load('cc_v2',[]);
+  }
+  if(result.tb.length) {
+    const existing = load('tb_v1',[]);
+    localStorage.setItem('tb_v1', JSON.stringify([...result.tb, ...existing]));
+    tbData = load('tb_v1',[]);
+  }
+
+  // Merge danh mục
+  const c = result.cats;
+  if(c.ct && c.ct.length)    { const cur=load('cat_ct',DEFAULTS.congTrinh); const merged=[...new Set([...cur,...c.ct])]; localStorage.setItem('cat_ct',JSON.stringify(merged)); cats.congTrinh=merged; }
+  if(c.loai && c.loai.length) { const cur=load('cat_loai',DEFAULTS.loaiChiPhi); const merged=[...new Set([...cur,...c.loai])]; localStorage.setItem('cat_loai',JSON.stringify(merged)); cats.loaiChiPhi=merged; }
+  if(c.ncc && c.ncc.length)   { const cur=load('cat_ncc',DEFAULTS.nhaCungCap); const merged=[...new Set([...cur,...c.ncc])]; localStorage.setItem('cat_ncc',JSON.stringify(merged)); cats.nhaCungCap=merged; }
+  if(c.nguoi && c.nguoi.length){ const cur=load('cat_nguoi',DEFAULTS.nguoiTH); const merged=[...new Set([...cur,...c.nguoi])]; localStorage.setItem('cat_nguoi',JSON.stringify(merged)); cats.nguoiTH=merged; }
+
+  buildYearSelect();
+  rebuildEntrySelects(); rebuildUngSelects();
+  buildFilters(); filterAndRender(); renderTrash();
+  renderCCHistory(); renderCCTLT();
+  buildUngFilters(); filterAndRenderUng();
+  renderCtPage(); renderSettings(); updateTop();
+
+  toast('✅ Import thành công!', 'success');
+
+  // Push lên Firebase tất cả các năm có trong data
+  if(fbReady()) {
+    showSyncBanner('☁️ Đang lưu lên Firebase...');
+    const years = new Set();
+    result.inv.forEach(i=>{ if(i.ngay) years.add(parseInt(i.ngay.slice(0,4))); });
+    result.ung.forEach(i=>{ if(i.ngay) years.add(parseInt(i.ngay.slice(0,4))); });
+    result.cc.forEach(i=>{ if(i.fromDate) years.add(parseInt(i.fromDate.slice(0,4))); });
+    if(!years.size) years.add(activeYear||new Date().getFullYear());
+
+    let pending = years.size;
+    years.forEach(yr => {
+      const payload = fbYearPayload(yr);
+      fsSet(fbDocYear(yr), payload).then(()=>{
+        pending--;
+        if(pending===0) {
+          fsSet(fbDocCats(), fbCatsPayload()).then(()=>{
+            showSyncBanner('✅ Đã lưu lên Firebase!', 3000);
+          });
+        }
+      }).catch(()=>{ pending--; });
+    });
+  }
+}
 
 </script>
 
