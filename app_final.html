@@ -733,7 +733,6 @@ html, body { max-width: 100%; overflow-x: hidden; }
     <button class="nav-btn" data-page="tatca" onclick="goPage(this,'tatca')">Tất Cả CP</button>
     <button class="nav-btn" data-page="chamcong" onclick="goPage(this,'chamcong')">📅 Chấm Công</button>
     <button class="nav-btn" data-page="nhapung" onclick="goPage(this,'nhapung')">💰 Tiền Ứng</button>
-    <button class="nav-btn" data-page="ct" onclick="goPage(this,'ct')">Tổng CP CT</button>
     <button class="nav-btn" data-page="thietbi" onclick="goPage(this,'thietbi')">🔧 Theo dõi TB</button>
     <button class="nav-btn" data-page="danhmuc" onclick="goPage(this,'danhmuc')">⚙ Danh Mục</button>
     <button class="nav-btn" data-page="dashboard" onclick="goPage(this,'dashboard')">📊 Dashboard</button>
@@ -818,21 +817,7 @@ html, body { max-width: 100%; overflow-x: hidden; }
   </div>
 
   <!-- PAGE: CT -->
-  <div class="page" id="page-ct">
-    <div class="section-header">
-      <div class="section-title"><span class="dot"></span>Tổng CP Công Trình</div>
-      <div class="btn-group">
-        <span class="bar-label" style="font-size:12px">Sắp xếp:</span>
-        <select class="filter-sel" id="ct-sort" onchange="renderCtPage()" style="font-size:12px">
-          <option value="value">Theo giá trị (cao → thấp)</option>
-          <option value="name">Theo tên (A → Z)</option>
-        </select>
-        <button class="btn btn-outline" onclick="renderCtPage()">↻ Làm mới</button>
-      </div>
-    </div>
-    <div id="ct-grid" class="ct-summary-grid"></div>
-  </div>
-
+  
   <!-- PAGE: THEO DÕI THIẾT BỊ -->
   <div class="page" id="page-thietbi">
 
@@ -1256,15 +1241,30 @@ html, body { max-width: 100%; overflow-x: hidden; }
     </div>
 
     <!-- Hàng 3: Top 5 + CT cao nhất -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:22px">
       <div class="records-wrap" style="padding:18px 20px">
         <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:14px">🏆 Top 5 Chi Phí Lớn Nhất</div>
         <div id="db-top5"></div>
       </div>
       <div class="records-wrap" style="padding:18px 20px">
-        <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:14px">🏗️ Chi Phí Theo Công Trình</div>
+        <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:14px">📊 Chi Phí Theo Công Trình</div>
         <div id="db-by-ct"></div>
       </div>
+    </div>
+
+    <!-- Hàng 4: Chi tiết từng Công Trình (từ tab Tổng CP CT) -->
+    <div>
+      <div class="section-header" style="margin-bottom:14px">
+        <div class="section-title"><span class="dot"></span>🏗️ Chi Tiết Từng Công Trình</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:12px;color:var(--ink3)">Sắp xếp:</span>
+          <select class="filter-sel" id="ct-sort" onchange="renderCtPage()" style="font-size:12px">
+            <option value="value">Theo giá trị (cao → thấp)</option>
+            <option value="name">Theo tên (A → Z)</option>
+          </select>
+        </div>
+      </div>
+      <div id="ct-grid" class="ct-summary-grid"></div>
     </div>
   </div>
 
@@ -2136,7 +2136,6 @@ function goPage(btn, id) {
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('page-'+id).classList.add('active');
   btn.classList.add('active');
-  if (id==='ct') renderCtPage();
   if (id==='tatca') { buildFilters(); filterAndRender(); }
   if (id==='nhap') { renderTodayInvoices(); }
   if (id==='danhmuc') renderSettings();
@@ -2663,7 +2662,7 @@ function renderCtPage() {
 }
 
 function showCtModal(ctName) {
-  const invs=invoices.filter(i=>i.congtrinh===ctName);
+  const invs=invoices.filter(i=>i.congtrinh===ctName && inActiveYear(i.ngay));
   document.getElementById('modal-title').textContent='🏗️ '+ctName;
   const byLoai={};
   invs.forEach(inv=>{ if(!byLoai[inv.loai])byLoai[inv.loai]=[]; byLoai[inv.loai].push(inv); });
@@ -5576,6 +5575,7 @@ function renderDashboard() {
   _dbPieChart(data);
   _dbTop5(data);
   _dbByCT(data);
+  renderCtPage();   // Chi tiết từng CT (gộp từ tab cũ)
 }
 
 // ── KPI Cards ─────────────────────────────────────────────────
