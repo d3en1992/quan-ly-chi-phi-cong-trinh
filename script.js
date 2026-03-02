@@ -112,12 +112,11 @@ function migrateData() {
   console.log('[Migration] Hoàn tất → v' + DATA_VERSION);
 }
 
-// ── Auto Backup mỗi 10 phút ───────────────────────────────────
+// ── Auto Backup mỗi 30 phút ───────────────────────────────────
 // Lưu snapshot toàn bộ data vào localStorage key: backup_auto
-// Giữ tối đa 3 bản gần nhất (tránh tràn localStorage)
+// Giữ 2 bản gần nhất + 1 bản của 7 ngày trước
 const BACKUP_KEY     = 'backup_auto';
-const BACKUP_MAX     = 3;      // số bản backup giữ lại
-const BACKUP_MINS    = 10;     // chu kỳ backup (phút)
+const BACKUP_MINS    = 30;     // chu kỳ backup (phút)
 let   _backupTimer   = null;
 
 function _snapshotNow(label) {
@@ -139,11 +138,14 @@ function _snapshotNow(label) {
         cn:    _loadLS('cat_cn')    || []
       }
     };
-    // Giữ tối đa BACKUP_MAX bản
+    // Giữ 2 bản gần nhất + 1 bản cũ nhất trong khoảng 7 ngày trước
     const list = _loadLS(BACKUP_KEY) || [];
     list.unshift(snap);
-    if (list.length > BACKUP_MAX) list.length = BACKUP_MAX;
-    _saveLS(BACKUP_KEY, list);
+    const recent = list.slice(0, 2);
+    const rest   = list.slice(2);
+    const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+    const weekly = rest.find(b => b._time && (Date.now() - new Date(b._time).getTime()) >= SEVEN_DAYS);
+    _saveLS(BACKUP_KEY, weekly ? [...recent, weekly] : recent);
     return snap;
   } catch(e) {
     console.warn('[Backup] Lỗi:', e);
@@ -156,7 +158,7 @@ function autoBackup() {
   // Chạy lần đầu sau 1 phút kể từ khi mở app
   setTimeout(() => {
     _snapshotNow('auto');
-    // Sau đó lặp mỗi BACKUP_MINS phút
+    // Sau đó lặp mỗi 30 phút
     _backupTimer = setInterval(() => {
       _snapshotNow('auto');
       console.log('[Backup] Auto snapshot lúc', new Date().toLocaleTimeString('vi-VN'));
@@ -783,6 +785,7 @@ let cats = {
   thauPhu:    load('cat_tp',    []),
   congNhan:   load('cat_cn',    [])
 };
+let cnRoles = load('cat_cn_roles', {}); // { "Tên CN": "C/T/P" }
 
 let invoices = load('inv_v3', []);
 let filteredInvs = [];
@@ -798,7 +801,7 @@ function init() {
 
   // Hiển thị dữ liệu local ngay lập tức
   initTable(5);
-  initUngTable(8);
+  initUngTable(4);
   initCC();
   updateTop();
   updateJbBtn();
@@ -806,7 +809,7 @@ function init() {
   // ── Nâng cấp schema nếu cần (chạy trước khi dùng data) ──
   migrateData();
 
-  // ── Bắt đầu auto backup ngầm mỗi 10 phút ──────────────────
+  // ── Bắt đầu auto backup ngầm mỗi 30 phút ──────────────────
   autoBackup();
 
   // Tự động tạo HĐ nhân công nếu có CC data nhưng chưa có HĐ (vd: sau khi import Excel)
@@ -847,7 +850,7 @@ function init() {
     cats.nguoiTH    = load('cat_nguoi', DEFAULTS.nguoiTH);
     buildYearSelect(); updateTop();
     rebuildEntrySelects(); rebuildCCNameList(); populateCCCtSel();
-    initTable(5); initUngTable(8); initCC();
+    initTable(5); initUngTable(4); initCC();
     const built2 = rebuildInvoicesFromCC();
     updateTop();
     toast(`✅ Đồng bộ xong! ${built2.weeks} HĐ nhân công, ${built2.cts} CT mới`, 'success');
@@ -872,7 +875,7 @@ function goPage(btn, id) {
   if (id==='doanhthu') initDoanhThu();
   if (id==='nhapung') { initUngTableIfEmpty(); buildUngFilters(); filterAndRenderUng(); }
   if (id==='chamcong') { populateCCCtSel(); rebuildCCNameList(); renderCCHistory(); renderCCTLT(); }
-  if (id==='thietbi') { tbPopulateSels(); tbBuildRows(8); tbRenderList(); }
+  if (id==='thietbi') { tbPopulateSels(); tbBuildRows(5); tbRenderList(); tbRenderThongKeVon(); }
 }
 
 // ══════════════════════════════
@@ -1440,7 +1443,7 @@ function renderSettings() {
         <div class="settings-card-title">${cfg.title} <span style="font-size:11px;font-weight:400;color:var(--ink3)">(${list.length})</span></div>
       </div>
       <div class="settings-list" id="sl-${cfg.id}">
-        ${list.map((item,idx)=>renderItem(cfg.id,item,idx)).join('')}
+        ${list.map((item,idx)=>cfg.id==='congNhan'?renderCNItem(item,idx):renderItem(cfg.id,item,idx)).join('')}
       </div>
       <div class="settings-add">
         <input type="text" id="sa-${cfg.id}" placeholder="Thêm mới..." onkeydown="if(event.key==='Enter')addItem('${cfg.id}')">
@@ -1464,6 +1467,55 @@ function renderItem(catId,item,idx) {
     <button class="btn ${inUse?'btn-outline':'btn-danger'} btn-sm btn-icon" onclick="delItem('${catId}',${idx})"
       title="${inUse?'Đang được sử dụng — không thể xóa':'Xóa'}" ${inUse?'style="opacity:0.4;cursor:not-allowed"':''}>✕</button>
   </div>`;
+}
+
+// ── Render item Công Nhân với cột T/P ────────────────────────────
+function renderCNItem(name, idx) {
+  const role = cnRoles[name] || '';
+  const inUse = ccData.some(w => w.workers && w.workers.some(wk => wk.name === name));
+  return `<div class="settings-item" id="si-congNhan-${idx}" style="${inUse?'background:rgba(26,122,69,0.04)':''}">
+    <span class="s-name" id="sn-congNhan-${idx}" ondblclick="startEdit('congNhan',${idx})">${x(name)}</span>
+    ${inUse?`<span title="Đang được sử dụng" style="font-size:10px;color:#1a7a45;padding:2px 5px;background:rgba(26,122,69,0.1);border-radius:3px;margin-right:2px">✓ đang dùng</span>`:''}
+    <input class="s-edit-input" id="se-congNhan-${idx}" value="${x(name)}"
+      onblur="finishEdit('congNhan',${idx})"
+      onkeydown="if(event.key==='Enter')finishEdit('congNhan',${idx});if(event.key==='Escape')cancelEdit('congNhan',${idx})">
+    <select onchange="updateCNRole(${idx},this.value)"
+      style="margin:0 4px;padding:2px 6px;border:1px solid var(--line2);border-radius:4px;font-size:12px;font-weight:700;cursor:pointer;min-width:44px"
+      title="Vai trò (C=Cái, T=Thợ, P=Phụ)">
+      <option value="" ${!role?'selected':''}>—</option>
+      <option value="C" ${role==='C'?'selected':''}>C</option>
+      <option value="T" ${role==='T'?'selected':''}>T</option>
+      <option value="P" ${role==='P'?'selected':''}>P</option>
+    </select>
+    <button class="btn btn-outline btn-sm btn-icon" onclick="startEdit('congNhan',${idx})" title="Sửa tên">✏️</button>
+    <button class="btn ${inUse?'btn-outline':'btn-danger'} btn-sm btn-icon" onclick="delItem('congNhan',${idx})"
+      title="${inUse?'Đang được sử dụng — không thể xóa':'Xóa'}" ${inUse?'style="opacity:0.4;cursor:not-allowed"':''}>✕</button>
+  </div>`;
+}
+
+// ── Cập nhật vai trò CN từ Danh mục ──────────────────────────────
+function updateCNRole(idx, role) {
+  const name = cats.congNhan[idx];
+  if (!name) return;
+  cnRoles[name] = role;
+  save('cat_cn_roles', cnRoles);
+  syncCNRoles(name, role);
+  toast(`✅ Đã cập nhật vai trò "${name}" → ${role||'—'}`, 'success');
+}
+
+// ── Đồng bộ vai trò vào ccData (năm hiện tại + năm trước) ────────
+function syncCNRoles(name, role) {
+  const curYear = activeYear || new Date().getFullYear();
+  const prevYear = curYear - 1;
+  let changed = false;
+  ccData.forEach(week => {
+    const yr = parseInt((week.fromDate || '').slice(0, 4));
+    if (yr !== curYear && yr !== prevYear) return;
+    (week.workers || []).forEach(wk => {
+      if (wk.name === name) { wk.role = role; changed = true; }
+    });
+  });
+  if (changed) save('cc_v2', ccData);
 }
 
 function startEdit(catId,idx) {
@@ -1567,14 +1619,14 @@ let ungRecords = load('ung_v1', []);
 let filteredUng = [];
 let ungPage = 1;
 
-function initUngTable(n=8) {
+function initUngTable(n=4) {
   document.getElementById('ung-tbody').innerHTML='';
   for(let i=0;i<n;i++) addUngRow();
   calcUngSummary();
 }
 
 function initUngTableIfEmpty() {
-  if(document.getElementById('ung-tbody').children.length===0) initUngTable(8);
+  if(document.getElementById('ung-tbody').children.length===0) initUngTable(4);
 }
 
 function addUngRows(n) { for(let i=0;i<n;i++) addUngRow(); }
@@ -1636,7 +1688,7 @@ function calcUngSummary() {
 
 function clearUngTable() {
   if(!confirm('Xóa toàn bộ bảng nhập tiền ứng?')) return;
-  initUngTable(8);
+  initUngTable(4);
 }
 
 function saveAllUngRows() {
@@ -1662,7 +1714,7 @@ function saveAllUngRows() {
   if(saved===0) { toast('Không có dòng hợp lệ!','error'); return; }
   save('ung_v1', ungRecords);
   toast(`✅ Đã lưu ${saved} tiền ứng!`,'success');
-  initUngTable(8);
+  initUngTable(4);
   document.getElementById('ung-date').value = today();
 }
 
@@ -2130,6 +2182,7 @@ function buildCCTable(workers){
     </th>
     <th class="col-num">#</th>
     <th style="min-width:130px">Tên Công Nhân</th>
+    <th style="width:44px;text-align:center">T/P</th>
     ${CC_DAY_LABELS.map((l,i)=>`<th class="cc-day-header">${l}<br><span style="font-size:9px;font-weight:400;color:var(--ink2)">${dates[i]}</span></th>`).join('')}
     <th style="width:46px;text-align:center;${BG}">TC</th>
     <th style="width:110px;text-align:right;${BG}">Lương/Ngày</th>
@@ -2168,6 +2221,8 @@ function buildCCRow(w,num){
   const luong=w?(w.luong||0):0;
   const phucap=w?(w.phucap||0):0;
   const hdml=w?(w.hdmuale||0):0;
+  const role=w?.role||(w?.name?cnRoles[w.name]||'':'');
+  const isKnown=w?.name?cats.congNhan.some(n=>n.toLowerCase()===(w.name||'').toLowerCase()):false;
 
   tr.innerHTML=`
     <td style="text-align:center;padding:4px">
@@ -2178,6 +2233,14 @@ function buildCCRow(w,num){
       <input class="cc-name-input" data-cc="name" list="cc-name-dl"
         value="${x(w?w.name||'':''||'')}" placeholder="Tên..."
         oninput="onCCNameInput(this)">
+    </td>
+    <td style="padding:0">
+      <select data-cc="tp" ${isKnown?'disabled':''} style="width:100%;border:none;background:transparent;padding:5px 4px;font-size:12px;font-weight:700;outline:none;color:var(--ink);${isKnown?'opacity:0.65;cursor:not-allowed':'cursor:pointer'}">
+        <option value="">—</option>
+        <option value="C" ${role==='C'?'selected':''}>C</option>
+        <option value="T" ${role==='T'?'selected':''}>T</option>
+        <option value="P" ${role==='P'?'selected':''}>P</option>
+      </select>
     </td>
     ${ds.map((v,i)=>`<td style="padding:0"><input class="cc-day-input ${v===1?'has-val':v>0&&v<1?'half-val':''}"
       data-cc="d${i}" value="${v||''}" placeholder="·" autocomplete="off"
@@ -2207,11 +2270,12 @@ function buildCCRow(w,num){
 }
 
 function onCCNameInput(inp){
-  // Check duplicate warning (only warn if another row has same non-empty name)
   const name=inp.value.trim();
-  if(!name) return;
+  if(!name){ inp.style.boxShadow=''; inp.title=''; return; }
+  // Chống trùng tên không phân biệt hoa thường
+  const nameLower=name.toLowerCase();
   let count=0;
-  document.querySelectorAll('#cc-tbody [data-cc="name"]').forEach(el=>{ if(el.value.trim()===name) count++; });
+  document.querySelectorAll('#cc-tbody [data-cc="name"]').forEach(el=>{ if(el.value.trim().toLowerCase()===nameLower) count++; });
   if(count>1){
     inp.style.boxShadow='inset 0 0 0 2px var(--red)';
     inp.title='⚠️ Tên trùng! Vui lòng đổi tên để phân biệt.';
@@ -2219,6 +2283,22 @@ function onCCNameInput(inp){
   } else {
     inp.style.boxShadow='';
     inp.title='';
+  }
+  // Auto-fill T/P nếu thợ đã có trong danh mục
+  const tr=inp.closest('tr');
+  if(!tr) return;
+  const tpSel=tr.querySelector('[data-cc="tp"]');
+  if(!tpSel) return;
+  const known=cats.congNhan.find(n=>n.toLowerCase()===nameLower);
+  if(known){
+    tpSel.value=cnRoles[known]||'';
+    tpSel.disabled=true;
+    tpSel.style.opacity='0.65';
+    tpSel.style.cursor='not-allowed';
+  } else {
+    tpSel.disabled=false;
+    tpSel.style.opacity='1';
+    tpSel.style.cursor='pointer';
   }
 }
 
@@ -2435,13 +2515,14 @@ function saveCCWeek(){
   if(!fromDate){ toast('Chọn ngày bắt đầu tuần!','error'); return; }
   if(!ct){ toast('Chọn công trình!','error'); return; }
 
-  // check duplicate names
+  // check duplicate names (không phân biệt hoa thường)
   const names=[];
   let dupFound=false;
   document.querySelectorAll('#cc-tbody tr:not(.cc-sum-row) [data-cc="name"]').forEach(el=>{
     const n=el.value.trim();
-    if(n&&names.includes(n)){ dupFound=true; el.style.boxShadow='inset 0 0 0 2px var(--red)'; }
-    else if(n) names.push(n);
+    const nL=n.toLowerCase();
+    if(n&&names.includes(nL)){ dupFound=true; el.style.boxShadow='inset 0 0 0 2px var(--red)'; }
+    else if(n) names.push(nL);
   });
   if(dupFound){ toast('⚠️ Còn tên trùng nhau! Sửa trước khi lưu.','error'); return; }
 
@@ -2452,9 +2533,10 @@ function saveCCWeek(){
     const phucap=parseInt(tr.querySelector('[data-cc="phucap"]')?.dataset?.raw||0)||0;
     const hdmuale=parseInt(tr.querySelector('[data-cc="hdml"]')?.dataset?.raw||0)||0;
     const nd=(tr.querySelector('[data-cc="nd"]')?.value?.trim()||'');
+    const role=tr.querySelector('[data-cc="tp"]')?.value||'';
     const d=[];
     for(let i=0;i<7;i++) d.push(parseFloat(tr.querySelector(`[data-cc="d${i}"]`)?.value||0)||0);
-    if(name||d.some(v=>v>0)) workers.push({name,luong,d,phucap,hdmuale,nd});
+    if(name||d.some(v=>v>0)) workers.push({name,luong,d,phucap,hdmuale,nd,role});
   });
   if(!workers.length){ toast('Chưa có công nhân nào!','error'); return; }
 
@@ -2462,6 +2544,16 @@ function saveCCWeek(){
   ccData=ccData.filter(w=>!(w.fromDate===fromDate&&w.ct===ct));
   ccData.unshift({id:Date.now(), fromDate, toDate, ct, workers});
   save('cc_v2',ccData);
+
+  // ── Tự động thêm tên mới + vai trò vào danh mục Công Nhân ───────
+  let cnUpdated=false;
+  workers.forEach(wk=>{
+    if(!wk.name) return;
+    const known=cats.congNhan.find(n=>n.toLowerCase()===wk.name.toLowerCase());
+    if(!known){ cats.congNhan.push(wk.name); cnUpdated=true; }
+    if(wk.role && !cnRoles[wk.name]){ cnRoles[wk.name]=wk.role; cnUpdated=true; }
+  });
+  if(cnUpdated){ cats.congNhan.sort(); save('cat_cn',cats.congNhan); save('cat_cn_roles',cnRoles); }
 
   // ── UPSERT HĐ Mua Lẻ to invoices (one per worker with hdmuale > 0) ──
   // First, remove old hdml invoices for workers no longer having hdmuale
@@ -3296,6 +3388,7 @@ const TB_TEN_MAY = [
   'Thước nhôm', 'Chân Dàn 1.7m', 'Chân Dàn 1.5m',
   'Chéo lớn', 'Chéo nhỏ', 'Kít tăng giàn giáo', 'Cây chống tăng'
 ];
+const TB_KHO_TONG = 'KHO TỔNG';
 const TB_STATUS_STYLE = {
   'Đang hoạt động': 'background:#e6f4ec;color:#1a7a45;',
   'Hoạt động lâu':  'background:#fef3dc;color:#c8870a;',
@@ -3308,7 +3401,11 @@ let thuRecords  = load('thu_v1', []);       // [{ id, ngay, congtrinh, tien, nd 
 
 // ── Populate selects ──────────────────────────────────────────────
 function tbPopulateSels() {
-  const allCts = [...new Set([...cats.congTrinh, ...tbData.map(r=>r.ct)].filter(Boolean))].sort();
+  const allCts = [
+    TB_KHO_TONG,
+    ...[...new Set([...cats.congTrinh, ...tbData.map(r=>r.ct)]
+      .filter(v => v && v !== TB_KHO_TONG))].sort()
+  ];
   // Lọc mềm: CT có phát sinh trong năm đang chọn
   const filtered = allCts.filter(ct => _entityInYear(ct, 'ct'));
 
@@ -3326,7 +3423,7 @@ function tbPopulateSels() {
 }
 
 // ── Build nhập bảng ───────────────────────────────────────────────
-function tbBuildRows(n=8) {
+function tbBuildRows(n=5) {
   const tbody = document.getElementById('tb-tbody');
   tbody.innerHTML = '';
   for (let i=0; i<n; i++) tbAddRow(null, i+1);
@@ -3409,8 +3506,16 @@ function tbClearRows() {
 
 // ── Lưu thiết bị ─────────────────────────────────────────────────
 function tbSave() {
+  const saveBtn = document.getElementById('tb-save-btn');
+  if (saveBtn && saveBtn.disabled) return;
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '⏳ Đang lưu...'; }
+
   const ct = document.getElementById('tb-ct-sel').value.trim();
-  if (!ct) { toast('Vui lòng chọn công trình!', 'error'); return; }
+  if (!ct) {
+    toast('Vui lòng chọn công trình!', 'error');
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '💾 Lưu thiết bị'; }
+    return;
+  }
 
   const rows = [];
   const ngay = today();
@@ -3423,14 +3528,22 @@ function tbSave() {
     if (ten) rows.push({ id: Date.now()+'_'+Math.random().toString(36).slice(2), ct, ten, soluong:sl, tinhtrang:tt, nguoi, ghichu, ngay });
   });
 
-  if (!rows.length) { toast('Không có dữ liệu để lưu!', 'error'); return; }
+  if (!rows.length) {
+    toast('Không có dữ liệu để lưu!', 'error');
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '💾 Lưu thiết bị'; }
+    return;
+  }
 
   tbData = [...tbData, ...rows];
   save('tb_v1', tbData);
   tbPopulateSels();
   tbRenderList();
+  tbRenderThongKeVon();
   tbBuildRows();
   toast(`✅ Đã lưu ${rows.length} thiết bị vào ${ct}`, 'success');
+  setTimeout(() => {
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '💾 Lưu thiết bị'; }
+  }, 1500);
 }
 
 // ── Render bảng danh sách ─────────────────────────────────────────
@@ -3485,6 +3598,10 @@ function tbRenderList() {
       <td style="font-size:10px;color:var(--ink3);white-space:nowrap">${r.ngay||''}</td>
       <td style="white-space:nowrap;display:flex;gap:4px;padding:6px 4px">
         <button class="btn btn-outline btn-sm" onclick="tbEditRow('${r.id}')" title="Sửa">✏️</button>
+        ${r.ct !== TB_KHO_TONG
+          ? `<button class="btn btn-sm" onclick="tbThuHoi('${r.id}')" title="Thu hồi về KHO TỔNG"
+               style="background:#2563eb;color:#fff;border:none;font-size:11px;padding:3px 8px;border-radius:5px;cursor:pointer;font-family:inherit">↩ Thu Hồi</button>`
+          : ''}
         <button class="btn btn-danger btn-sm" onclick="tbDeleteRow('${r.id}')">✕</button>
       </td>
     </tr>`;
@@ -3525,6 +3642,7 @@ function tbDeleteRow(id) {
   tbData = tbData.filter(r=>r.id!==id);
   save('tb_v1', tbData);
   tbRenderList();
+  tbRenderThongKeVon();
   toast('Đã xóa thiết bị');
 }
 
@@ -3594,6 +3712,7 @@ function tbSaveEdit(id) {
   document.getElementById('tb-edit-overlay').remove();
   tbPopulateSels();
   tbRenderList();
+  tbRenderThongKeVon();
   toast('✅ Đã cập nhật thiết bị!', 'success');
 }
 
@@ -3609,6 +3728,79 @@ function tbExportCSV() {
   const rows = [['Công Trình','Tên Thiết Bị','Số Lượng','Tình Trạng','Người TH','Ghi Chú','Cập Nhật']];
   data.forEach(r=>rows.push([r.ct,r.ten,r.soluong||0,r.tinhtrang||'',r.nguoi||'',r.ghichu||'',r.ngay||'']));
   dlCSV(rows, 'thiet_bi_'+today()+'.csv');
+}
+
+// ── Thu hồi thiết bị về KHO TỔNG ─────────────────────────────────
+function tbThuHoi(id) {
+  const r = tbData.find(r => r.id === id);
+  if (!r) return;
+  if (r.ct === TB_KHO_TONG) { toast('Thiết bị này đã ở KHO TỔNG!', 'error'); return; }
+  if (!confirm(`Thu hồi "${r.ten}" (SL: ${r.soluong||0}) về KHO TỔNG?`)) return;
+
+  // Tìm record KHO TỔNG cùng tên → cộng dồn, hoặc tạo mới
+  const khoIdx = tbData.findIndex(x => x.ct === TB_KHO_TONG && x.ten === r.ten);
+  if (khoIdx >= 0) {
+    tbData[khoIdx].soluong = (tbData[khoIdx].soluong || 0) + (r.soluong || 0);
+    tbData[khoIdx].ngay = today();
+  } else {
+    tbData.push({
+      id: Date.now() + '_' + Math.random().toString(36).slice(2),
+      ct: TB_KHO_TONG,
+      ten: r.ten,
+      soluong: r.soluong || 0,
+      tinhtrang: r.tinhtrang || 'Đang hoạt động',
+      nguoi: r.nguoi || '',
+      ghichu: `Thu hồi từ ${r.ct}`,
+      ngay: today()
+    });
+  }
+  // Xóa record cũ (Tổng Sở Hữu giữ nguyên — chỉ dịch chuyển SL)
+  tbData = tbData.filter(x => x.id !== id);
+  save('tb_v1', tbData);
+  tbPopulateSels();
+  tbRenderList();
+  tbRenderThongKeVon();
+  toast(`✅ Đã thu hồi "${r.ten}" về KHO TỔNG`, 'success');
+}
+
+// ── Bảng Thống Kê Theo Tên Thiết Bị ─────────────────────────────
+function tbRenderThongKeVon() {
+  const tbody = document.getElementById('tb-vonke-tbody');
+  if (!tbody) return;
+
+  // Nhóm theo tên thiết bị
+  const map = {};
+  tbData.forEach(r => {
+    if (!r.ten) return;
+    if (!map[r.ten]) map[r.ten] = { ten: r.ten, total: 0, kho: 0, cts: {} };
+    const sl = r.soluong || 0;
+    map[r.ten].total += sl;
+    if (r.ct === TB_KHO_TONG) {
+      map[r.ten].kho += sl;
+    } else if (r.ct) {
+      map[r.ten].cts[r.ct] = (map[r.ten].cts[r.ct] || 0) + sl;
+    }
+  });
+
+  const items = Object.values(map).sort((a, b) => a.ten.localeCompare(b.ten, 'vi'));
+
+  if (!items.length) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="4">Chưa có dữ liệu thiết bị</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = items.map(item => {
+    const tags = Object.entries(item.cts)
+      .map(([ct, sl]) =>
+        `<span style="background:#e8f0fe;color:#1967d2;padding:1px 7px;border-radius:10px;font-size:10px;margin:1px;display:inline-block">${x(ct)}: ${sl}</span>`)
+      .join('');
+    return `<tr>
+      <td style="font-weight:600;font-size:13px">${x(item.ten)}</td>
+      <td style="text-align:center;font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:15px;color:var(--ink)">${item.total}</td>
+      <td style="text-align:center;font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:14px;color:#1a7a45">${item.kho || 0}</td>
+      <td style="line-height:2">${tags || '<span style="color:var(--ink3);font-size:12px">—</span>'}</td>
+    </tr>`;
+  }).join('');
 }
 
 // ── Init TB khi load trang ────────────────────────────────────────

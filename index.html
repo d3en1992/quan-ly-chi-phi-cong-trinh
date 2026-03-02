@@ -250,7 +250,7 @@
       <div class="section-title"><span class="dot"></span>Nhập Máy Móc, Thiết Bị, Giàn Giáo</div>
       <div class="btn-group">
         <button class="btn btn-outline btn-sm" onclick="tbClearRows()">🗑 Xóa bảng</button>
-        <button class="btn btn-green btn-sm" onclick="tbSave()">💾 Lưu thiết bị</button>
+        <button id="tb-save-btn" class="btn btn-green btn-sm" onclick="tbSave()">💾 Lưu thiết bị</button>
       </div>
     </div>
 
@@ -319,6 +319,27 @@
         </table>
       </div>
       <div class="pagination" id="tb-pagination"></div>
+    </div>
+
+    <!-- Bảng 3: Thống Kê Theo Tên Thiết Bị -->
+    <div class="section-header" style="margin-top:28px">
+      <div class="section-title"><span class="dot"></span>📦 Thống Kê Theo Tên Thiết Bị</div>
+      <button class="btn btn-outline btn-sm" onclick="tbRenderThongKeVon()">↻ Làm mới</button>
+    </div>
+    <div class="records-wrap">
+      <div style="overflow-x:auto">
+        <table class="records-table" id="tb-vonke-table">
+          <thead>
+            <tr>
+              <th>Tên Máy / Thiết Bị</th>
+              <th style="text-align:center">Tổng Sở Hữu</th>
+              <th style="text-align:center">Đang ở Kho</th>
+              <th>Đang đi Công Trình</th>
+            </tr>
+          </thead>
+          <tbody id="tb-vonke-tbody"></tbody>
+        </table>
+      </div>
     </div>
 
   </div>
@@ -477,7 +498,6 @@
         <span>Dòng có dữ liệu: <strong id="ung-row-count">0</strong></span>
         <span>Tổng tiền ứng: <span class="hi" id="ung-entry-total">0 đ</span></span>
       </div>
-      <button class="btn btn-green" onclick="saveAllUngRows()">💾 Lưu tất cả tiền ứng</button>
     </div>
 
     <!-- Bảng 2: Tổng tiền ứng -->
