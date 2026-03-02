@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chi Phí Công Trình</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+</head>
+<body>
+
+<!-- ── Template Phiếu Lương (ẩn, dùng để chụp ảnh) ── -->
+<div id="phieu-luong-template">
+  <div class="pl-header">
+    <div class="pl-title">PHIẾU THANH TOÁN LƯƠNG</div>
+    <div class="pl-subtitle" id="pl-ct-name"></div>
+  </div>
+  <div class="pl-meta">
+    <div>Công trình: <b id="pl-ct-label"></b></div>
+    <div>Thời gian: <b id="pl-period"></b></div>
+    <div>Ngày in: <b id="pl-date"></b></div>
+  </div>
+  <table class="pl-table">
+    <thead>
+      <tr>
+        <th style="text-align:left;min-width:120px">Tên Công Nhân</th>
+        <th>Số Ngày Công</th>
+        <th>Lương / Ngày</th>
+        <th>Phụ Cấp</th>
+        <th>HĐ Mua Lẻ (−)</th>
+        <th>Thành Tiền</th>
+      </tr>
+    </thead>
+    <tbody id="pl-tbody"></tbody>
+    <tfoot>
+      <tr class="pl-total-row">
+        <td colspan="5" style="text-align:right">TỔNG CỘNG</td>
+        <td id="pl-total-cell"></td>
+      </tr>
+    </tfoot>
+  </table>
+  <div class="pl-footer">
+    <div class="pl-grand-total" id="pl-grand-total"></div>
+    <div class="pl-grand-label">( Bằng chữ — vui lòng ghi tay )</div>
+    <div class="pl-sign">
+      <div class="pl-sign-box">
+        <div class="pl-sign-line">Người nhận tiền</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Template Phiếu Tạm Ứng (ẩn, dùng để chụp ảnh) ── -->
+<div id="phieu-ung-template" style="
+  display:none; position:fixed; left:-9999px; top:0;
+  width:680px; background:#ffffff; padding:32px 36px;
+  box-sizing:border-box; font-family:'IBM Plex Sans',Arial,sans-serif; color:#1a1814;">
+  <div style="text-align:center;margin-bottom:20px;border-bottom:2px solid #1a1814;padding-bottom:16px">
+    <div style="font-size:20px;font-weight:800;letter-spacing:1px">PHIẾU TẠM ỨNG TIỀN</div>
+    <div id="pul-ct-name" style="font-size:13px;color:#555;margin-top:4px"></div>
+  </div>
+  <div style="display:flex;justify-content:space-between;margin-bottom:18px;font-size:12px;color:#555">
+    <div>Công trình: <b id="pul-ct-label"></b></div>
+    <div>Ngày in: <b id="pul-date"></b></div>
+  </div>
+  <table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:12px">
+    <thead>
+      <tr>
+        <th style="background:#1a1814;color:#fff;padding:8px 10px;text-align:left;white-space:nowrap">Ngày Ứng</th>
+        <th style="background:#1a1814;color:#fff;padding:8px 10px;text-align:left">Người Nhận</th>
+        <th style="background:#1a1814;color:#fff;padding:8px 10px;text-align:left">Nội Dung</th>
+        <th style="background:#1a1814;color:#fff;padding:8px 10px;text-align:right;white-space:nowrap">Số Tiền</th>
+      </tr>
+    </thead>
+    <tbody id="pul-tbody"></tbody>
+    <tfoot>
+      <tr style="background:#f5f0e8">
+        <td colspan="3"
+          style="padding:9px 10px;text-align:right;font-weight:700;border-top:2px solid #1a1814">
+          TỔNG CỘNG
+        </td>
+        <td id="pul-total-cell"
+          style="padding:9px 10px;text-align:right;font-weight:700;border-top:2px solid #1a1814"></td>
+      </tr>
+    </tfoot>
+  </table>
+  <div style="border-top:2px solid #1a1814;padding-top:16px;text-align:center">
+    <div id="pul-grand-total"
+      style="font-size:18px;font-weight:800;color:#c8870a;letter-spacing:.5px"></div>
+    <div style="font-size:11px;color:#888;margin-top:2px">( Bằng chữ — vui lòng ghi tay )</div>
+    <div style="display:flex;justify-content:space-between;margin-top:28px;font-size:12px;color:#555">
+      <div style="text-align:center;min-width:140px">
+        <div style="border-top:1px solid #aaa;margin-top:40px;padding-top:4px">Người lập phiếu</div>
+      </div>
+      <div style="text-align:center;min-width:140px">
+        <div style="border-top:1px solid #aaa;margin-top:40px;padding-top:4px">Người nhận tiền</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="import-file-input" accept=".xlsx,.xls" style="display:none" onchange="handleImportFile(event)">
+<input type="file" id="import-json-input" accept=".json" style="display:none" onchange="importJSON(this.files[0])">
+
+<!-- ── Bin ID Modal ── -->
+
+
+<!-- ── Duplicate Invoice Warning Modal ── -->
+<div class="dup-modal-overlay" id="dup-modal-overlay">
+  <div class="dup-modal">
+    <div class="dup-modal-head">
+      <span class="dup-icon">⚠️</span>
+      <div>
+        <h3>Phát hiện hóa đơn trùng lặp</h3>
+        <div style="font-size:12px;color:#888;margin-top:2px" id="dup-modal-subtitle"></div>
+      </div>
+    </div>
+    <div class="dup-modal-body" id="dup-modal-body"></div>
+    <div class="dup-modal-foot">
+      <button class="btn btn-outline" onclick="closeDupModal()">✕ Hủy bỏ</button>
+      <button class="btn btn-gold" onclick="forceSaveAll()">💾 Vẫn lưu tất cả</button>
+    </div>
+  </div>
+</div>
+
+<div class="topbar">
+  <!-- Hàng 1: Logo + Năm + Tổng CP + Cloud -->
+  <div class="topbar-row1">
+    <!-- Logo -->
+    <div class="app-name">🏗️ Chi Phí <span>Công Trình</span></div>
+
+    <!-- Nhóm giữa: Năm + Tổng CP -->
+    <div class="topbar-meta">
+      <div class="topbar-year-wrap">
+        <span class="year-label">Năm</span>
+        <select id="global-year" onchange="onYearChange()" class="year-select">
+        </select>
+      </div>
+      <div class="top-stat"><span class="top-stat-label">Tổng CP</span><span class="top-stat-val" id="top-total">0đ</span></div>
+    </div>
+
+    <!-- Nhóm phải: các nút hành động -->
+    <div class="topbar-controls">
+      <button id="import-btn" onclick="openImportModal()" title="Import Excel" class="tb-btn">📥</button>
+      <button id="export-btn" onclick="openExportModal()" title="Xuất Excel" class="tb-btn">📤</button>
+      <button id="delete-btn" onclick="openDeleteModal()" title="Xóa dữ liệu" class="tb-btn tb-btn-danger">🗑️</button>
+      <button id="jb-btn" onclick="openBinModal()" class="tb-btn tb-btn-cloud">☁️ Cloud</button>
+    </div>
+  </div>
+  <!-- Hàng 2: Nav tabs -->
+  <nav class="topbar-nav">
+    <button class="nav-btn active" data-page="nhap" onclick="goPage(this,'nhap')">Nhập HĐ</button>
+    <button class="nav-btn" data-page="tatca" onclick="goPage(this,'tatca')">Tất Cả CP</button>
+    <button class="nav-btn" data-page="chamcong" onclick="goPage(this,'chamcong')">📅 Chấm Công</button>
+    <button class="nav-btn" data-page="nhapung" onclick="goPage(this,'nhapung')">💰 Tiền Ứng</button>
+    <button class="nav-btn" data-page="thietbi" onclick="goPage(this,'thietbi')">🔧 Theo dõi TB</button>
+    <button class="nav-btn" data-page="danhmuc" onclick="goPage(this,'danhmuc')">⚙ Danh Mục</button>
+    <button class="nav-btn" data-page="doanhthu" onclick="goPage(this,'doanhthu')">💵 Doanh Thu</button>
+    <button class="nav-btn" data-page="dashboard" onclick="goPage(this,'dashboard')">📊 Dashboard</button>
+  </nav>
+</div>
+
+<div class="content">
+
+  <!-- PAGE: NHẬP -->
+  <div class="page active" id="page-nhap">
+    <div class="section-header">
+      <div class="section-title"><span class="dot"></span>Nhập Hóa Đơn</div>
+      <div class="btn-group">
+        <button class="btn btn-outline" onclick="clearTable()">🗑 Xóa bảng</button>
+        <button class="btn btn-outline" onclick="exportEntryCSV()">⬇ Xuất CSV</button>
+      </div>
+    </div>
+
+    <div class="entry-date-bar">
+      <span class="bar-label">Ngày</span>
+      <input type="date" id="entry-date" class="date-input">
+    </div>
+
+    <div class="entry-table-wrap">
+      <div class="table-scroll">
+        <table class="entry-table">
+          <thead>
+            <tr>
+              <th class="col-num">#</th>
+              <th class="col-loai">Loại Chi Phí *</th>
+              <th class="col-ct">Công Trình *</th>
+              <th class="col-tien">Số Tiền (đ)</th>
+              <th style="width:72px;text-align:center">SL</th>
+              <th style="width:130px;text-align:right">Th Tiền (đ)</th>
+              <th class="col-nd">Nội Dung / Ghi Chú</th>
+              <th class="col-nguoi">Người TH</th>
+              <th class="col-ncc">Nhà Cung Cấp</th>
+              <th class="col-del"></th>
+            </tr>
+          </thead>
+          <tbody id="entry-tbody"></tbody>
+        </table>
+      </div>
+      <div class="add-row-bar">
+        <button class="btn btn-outline btn-sm" onclick="addRows(1)">+ 1 dòng</button>
+        <button class="btn btn-outline btn-sm" onclick="addRows(5)">+ 5 dòng</button>
+        <button class="btn btn-outline btn-sm" onclick="addRows(10)">+ 10 dòng</button>
+        <span style="font-size:11px;color:var(--ink3);margin-left:8px">Tab để di chuyển giữa các ô</span>
+      </div>
+    </div>
+
+    <div class="save-bar">
+      <div class="save-bar-info">
+        <span>Dòng có dữ liệu: <strong id="row-count">0</strong></span>
+        <span>Tổng thành tiền: <span class="hi" id="entry-total">0 đ</span></span>
+      </div>
+      <button class="btn btn-green" onclick="saveAllRows()">💾 Lưu / Cập Nhật</button>
+    </div>
+
+    <!-- Bảng HĐ đã nhập trong ngày -->
+    <div style="margin-top:20px" id="today-invoices-wrap">
+      <div class="section-header">
+        <div class="section-title" style="font-size:14px"><span class="dot"></span>Hóa Đơn Đã Nhập Trong Ngày <span id="today-inv-date" style="color:var(--gold);font-size:13px"></span></div>
+        <button class="btn btn-outline btn-sm" onclick="renderTodayInvoices()">↻ Làm mới</button>
+      </div>
+      <div class="records-wrap">
+        <div style="overflow-x:auto">
+          <table class="records-table" style="min-width:700px">
+            <thead><tr>
+              <th>Loại</th><th>Công Trình</th>
+              <th style="text-align:right">Số Tiền</th>
+              <th style="text-align:center">SL</th>
+              <th style="text-align:right">Thành Tiền</th>
+              <th>Nội Dung</th><th>Người TH</th><th></th>
+            </tr></thead>
+            <tbody id="today-inv-tbody"></tbody>
+          </table>
+        </div>
+        <div id="today-inv-footer" style="padding:8px 16px;border-top:1px solid var(--line);background:#f3f1ec;font-size:12px;color:var(--ink2);display:flex;justify-content:space-between"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE: CT -->
+  
+  <!-- PAGE: THEO DÕI THIẾT BỊ -->
+  <div class="page" id="page-thietbi">
+
+    <!-- Bảng 1: Nhập thiết bị -->
+    <div class="section-header">
+      <div class="section-title"><span class="dot"></span>Nhập Máy Móc, Thiết Bị, Giàn Giáo</div>
+      <div class="btn-group">
+        <button class="btn btn-outline btn-sm" onclick="tbClearRows()">🗑 Xóa bảng</button>
+        <button class="btn btn-green btn-sm" onclick="tbSave()">💾 Lưu thiết bị</button>
+      </div>
+    </div>
+
+    <div class="entry-date-bar" style="flex-wrap:wrap;gap:10px">
+      <span class="bar-label">Công Trình</span>
+      <select id="tb-ct-sel" class="bare-select" style="min-width:260px;font-size:13px">
+        <option value="">-- Chọn công trình --</option>
+      </select>
+    </div>
+
+    <div class="entry-table-wrap">
+      <div class="table-scroll">
+        <table class="entry-table" style="min-width:900px">
+          <thead>
+            <tr>
+              <th class="col-num">#</th>
+              <th style="min-width:200px">Tên Máy / Thiết Bị / Giàn Giáo</th>
+              <th style="width:90px;text-align:center">Số Lượng</th>
+              <th style="width:180px">Tình Trạng</th>
+              <th style="width:130px">Người TH</th>
+              <th style="min-width:180px">Ghi Chú</th>
+              <th class="col-del"></th>
+            </tr>
+          </thead>
+          <tbody id="tb-tbody"></tbody>
+        </table>
+      </div>
+      <div class="add-row-bar">
+        <button class="btn btn-outline btn-sm" onclick="tbAddRows(1)">+ 1 dòng</button>
+        <button class="btn btn-outline btn-sm" onclick="tbAddRows(5)">+ 5 dòng</button>
+        <span style="font-size:11px;color:var(--ink3);margin-left:8px">Mặc định tình trạng: Đang hoạt động</span>
+      </div>
+    </div>
+
+    <!-- Bảng 2: Danh sách thiết bị đã lưu -->
+    <div class="section-header" style="margin-top:28px">
+      <div class="section-title"><span class="dot"></span>Danh Sách Thiết Bị Tại Công Trình</div>
+      <div class="btn-group">
+        <select class="filter-sel" id="tb-filter-ct" onchange="tbRenderList()"><option value="">Tất cả công trình</option></select>
+        <select class="filter-sel" id="tb-filter-tt" onchange="tbRenderList()">
+          <option value="">Tất cả tình trạng</option>
+          <option value="Đang hoạt động">Đang hoạt động</option>
+          <option value="Hoạt động lâu">Hoạt động lâu</option>
+          <option value="Cần sửa chữa">Cần sửa chữa</option>
+        </select>
+        <button class="btn btn-outline btn-sm" onclick="tbExportCSV()">⬇ Xuất CSV</button>
+      </div>
+    </div>
+
+    <div class="records-wrap">
+      <div style="overflow-x:auto">
+        <table class="records-table" id="tb-list-table">
+          <thead>
+            <tr>
+              <th>Công Trình</th>
+              <th>Tên Thiết Bị</th>
+              <th style="text-align:center">Số Lượng</th>
+              <th>Tình Trạng</th>
+              <th>Người TH</th>
+              <th>Ghi Chú</th>
+              <th>Cập Nhật</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tb-list-tbody"></tbody>
+        </table>
+      </div>
+      <div class="pagination" id="tb-pagination"></div>
+    </div>
+
+  </div>
+
+  <!-- PAGE: TẤT CẢ -->
+  <div class="page" id="page-tatca">
+    <div class="section-header">
+      <div class="section-title"><span class="dot"></span>Tất Cả Chi Phí</div>
+      <button class="btn btn-outline" onclick="exportAllCSV()">⬇ Xuất CSV</button>
+    </div>
+    <div class="records-wrap">
+      <div class="records-toolbar">
+        <div class="search-box">
+          <span class="ico">🔍</span>
+          <input type="text" id="search" placeholder="Tìm kiếm..." oninput="filterAndRender()">
+        </div>
+        <select class="filter-sel" id="f-ct" onchange="filterAndRender()"><option value="">Tất cả công trình</option></select>
+        <select class="filter-sel" id="f-loai" onchange="filterAndRender()"><option value="">Tất cả loại</option></select>
+        <select class="filter-sel" id="f-month" onchange="filterAndRender()"><option value="">Tất cả tháng</option></select>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="records-table" id="all-table">
+          <thead>
+            <tr>
+              <th>Ngày</th><th>Công Trình</th><th>Loại Chi Phí</th>
+              <th class="hide-mobile">Người TH</th><th class="hide-mobile">Nhà Cung Cấp</th><th>Nội Dung</th>
+              <th style="text-align:right">Số Tiền</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="all-tbody"></tbody>
+        </table>
+      </div>
+      <div class="pagination" id="pagination"></div>
+    </div>
+
+    <!-- Thùng rác — HĐ đã xóa -->
+    <div style="margin-top:24px">
+      <div class="section-header">
+        <div class="section-title" style="font-size:14px"><span class="dot"></span>🗑 Hóa Đơn / Chi Phí Đã Xóa</div>
+        <div class="btn-group">
+          <button class="btn btn-outline btn-sm" onclick="trashClearAll()" style="color:var(--red)">🗑 Xóa vĩnh viễn tất cả</button>
+        </div>
+      </div>
+      <div class="records-wrap" id="trash-wrap" style="display:none">
+        <div style="overflow-x:auto">
+          <table class="records-table">
+            <thead><tr>
+              <th>Ngày</th><th>Công Trình</th><th>Loại</th>
+              <th>Nội Dung</th><th style="text-align:right">Số Tiền</th><th></th>
+            </tr></thead>
+            <tbody id="trash-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div id="trash-empty" style="text-align:center;padding:20px;color:var(--ink3);font-size:13px;background:var(--paper);border:1px solid var(--line);border-radius:8px">
+        Chưa có hóa đơn nào bị xóa
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE: DANH MỤC -->
+  <div class="page" id="page-danhmuc">
+    <div class="section-header">
+      <div class="section-title"><span class="dot"></span>Quản Lý Danh Mục</div>
+      <span style="font-size:12px;color:var(--ink3)">Nhấn ✏️ hoặc nhấp đúp để sửa tên • Thay đổi sẽ tự cập nhật vào hóa đơn đã lưu</span>
+    </div>
+    <div id="dm-grid" class="settings-grid"></div>
+
+    <!-- ── Panel Sao Lưu & Khôi Phục ── -->
+    <div style="margin-top:28px">
+      <div class="section-header">
+        <div class="section-title"><span class="dot"></span>💾 Sao Lưu &amp; Khôi Phục</div>
+        <span style="font-size:12px;color:var(--ink3)" id="backup-status-label"></span>
+      </div>
+
+      <div class="records-wrap" style="padding:16px 20px">
+
+        <!-- Hàng 1: Nút hành động -->
+        <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px">
+          <button class="btn btn-outline" onclick="exportJSON()" title="Xuất toàn bộ data ra file .json">
+            📤 Xuất JSON
+          </button>
+          <button class="btn btn-outline" onclick="document.getElementById('import-json-input').click()" title="Khôi phục từ file .json đã xuất trước đó">
+            📥 Nhập JSON
+          </button>
+          <button class="btn btn-outline" onclick="_snapshotNow('manual');renderBackupList();toast('✅ Đã tạo bản sao lưu thủ công','success')" title="Tạo bản sao lưu ngay bây giờ">
+            📸 Sao lưu ngay
+          </button>
+        </div>
+
+        <!-- Hàng 2: Danh sách backup -->
+        <div style="font-size:12px;font-weight:700;color:var(--ink2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">
+          Bản sao lưu tự động (giữ 3 bản gần nhất)
+        </div>
+        <div id="backup-list-wrap">
+          <div style="color:var(--ink3);font-size:13px;padding:8px 0">Đang tải...</div>
+        </div>
+
+        <!-- Mô tả -->
+        <div style="margin-top:12px;padding:10px 14px;background:var(--bg);border-radius:6px;border:1px solid var(--line);font-size:12px;color:var(--ink3);line-height:1.7">
+          <strong style="color:var(--ink2)">Cách hoạt động:</strong><br>
+          • <b>Tự động</b>: App tạo bản sao lưu sau 1 phút kể từ khi mở, sau đó mỗi 10 phút một lần<br>
+          • <b>Xuất JSON</b>: Tải file về máy — dùng để backup thủ công hoặc chuyển thiết bị<br>
+          • <b>Nhập JSON</b>: Khôi phục từ file .json (app sẽ backup dữ liệu hiện tại trước khi ghi đè)<br>
+          • <b>Data version</b>: <span id="data-version-badge" style="background:var(--green);color:#fff;padding:1px 7px;border-radius:10px;font-weight:700"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE: TIỀN ỨNG TP/NCC (gộp nhập + tổng) -->
+  <div class="page" id="page-nhapung">
+
+    <!-- Bảng 1: Nhập tiền ứng -->
+    <div class="section-header">
+      <div class="section-title"><span class="dot"></span>Nhập Tiền Ứng Thầu Phụ / Nhà Cung Cấp</div>
+      <div class="btn-group">
+        <button class="btn btn-outline" onclick="clearUngTable()">🗑 Xóa bảng</button>
+        <button class="btn btn-outline" onclick="exportUngEntryCSV()">⬇ Xuất CSV</button>
+        <button class="btn btn-green" onclick="saveAllUngRows()">💾 Lưu tất cả</button>
+      </div>
+    </div>
+
+    <div class="entry-date-bar">
+      <span class="bar-label">Ngày</span>
+      <input type="date" id="ung-date" class="date-input">
+    </div>
+
+    <div class="entry-table-wrap">
+      <div class="table-scroll">
+        <table class="entry-table">
+          <thead>
+            <tr>
+              <th class="col-num">#</th>
+              <th style="width:200px">Thầu Phụ / Nhà CC <span style="color:var(--gold)">*</span></th>
+              <th style="width:220px">Công Trình</th>
+              <th style="width:140px">Số Tiền Ứng (đ)</th>
+              <th style="min-width:220px">Nội Dung / Ghi Chú</th>
+              <th class="col-del"></th>
+            </tr>
+          </thead>
+          <tbody id="ung-tbody"></tbody>
+        </table>
+      </div>
+      <div class="add-row-bar">
+        <button class="btn btn-outline btn-sm" onclick="addUngRows(1)">+ 1 dòng</button>
+        <button class="btn btn-outline btn-sm" onclick="addUngRows(5)">+ 5 dòng</button>
+        <button class="btn btn-outline btn-sm" onclick="addUngRows(10)">+ 10 dòng</button>
+        <span style="font-size:11px;color:var(--ink3);margin-left:8px">Tab để di chuyển giữa các ô</span>
+      </div>
+    </div>
+
+    <div class="save-bar">
+      <div class="save-bar-info">
+        <span>Dòng có dữ liệu: <strong id="ung-row-count">0</strong></span>
+        <span>Tổng tiền ứng: <span class="hi" id="ung-entry-total">0 đ</span></span>
+      </div>
+      <button class="btn btn-green" onclick="saveAllUngRows()">💾 Lưu tất cả tiền ứng</button>
+    </div>
+
+    <!-- Bảng 2: Tổng tiền ứng -->
+    <div style="margin-top:24px">
+      <div class="section-header">
+        <div class="section-title"><span class="dot"></span>Tổng Tiền Ứng Thầu Phụ / Nhà Cung Cấp</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn btn-outline" onclick="exportUngAllCSV()">⬇ Xuất CSV</button>
+          <button class="btn btn-sm" onclick="exportUngToImage()"
+            style="background:#2563eb;color:#fff;border:none;font-weight:700"
+            title="Tick chọn dòng rồi bấm để xuất phiếu tạm ứng PNG">
+            📸 Xuất Phiếu Ứng
+          </button>
+        </div>
+      </div>
+      <div class="records-wrap">
+        <div class="records-toolbar">
+          <div class="search-box">
+            <span class="ico">🔍</span>
+            <input type="text" id="ung-search" placeholder="Tìm kiếm..." oninput="filterAndRenderUng()">
+          </div>
+          <select class="filter-sel" id="uf-tp" onchange="filterAndRenderUng()"><option value="">Tất cả TP/NCC</option></select>
+          <select class="filter-sel" id="uf-ct" onchange="filterAndRenderUng()"><option value="">Tất cả công trình</option></select>
+          <select class="filter-sel" id="uf-month" onchange="filterAndRenderUng()"><option value="">Tất cả tháng</option></select>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="records-table">
+            <thead>
+              <tr>
+                <th style="width:32px;text-align:center">
+                  <input type="checkbox" id="ung-chk-all" title="Chọn tất cả"
+                    onchange="document.querySelectorAll('.ung-row-chk').forEach(x=>x.checked=this.checked)">
+                </th>
+                <th>Ngày</th>
+                <th>Thầu Phụ / Nhà CC</th>
+                <th>Công Trình</th>
+                <th>Nội Dung</th>
+                <th style="text-align:right">Số Tiền Ứng</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="ung-all-tbody"></tbody>
+          </table>
+        </div>
+        <div class="pagination" id="ung-pagination"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- PAGE: SỔ CHẤM CÔNG -->
+  <div class="page" id="page-chamcong">
+
+    <div class="section-header">
+      <div class="section-title"><span class="dot"></span>Sổ Chấm Công</div>
+      <div class="btn-group">
+        <button class="btn btn-outline btn-sm" onclick="clearCCWeek()">🗑 Xóa bảng</button>
+        <button class="btn btn-outline btn-sm" onclick="exportCCWeekCSV()">⬇ CSV</button>
+        <button class="btn btn-outline btn-sm" id="cc-copy-btn" onclick="copyCCWeek()" title="Copy toàn bộ CN + ngày công + lương tuần này">📋 Copy tuần</button>
+        <button class="btn btn-outline btn-sm" id="cc-paste-btn" onclick="pasteCCWeek()" title="Dán toàn bộ CN + ngày công đã copy" style="display:none">📌 Dán</button>
+        <button class="btn btn-green btn-sm" onclick="saveCCWeek()">💾 Lưu tuần này</button>
+        <button class="btn btn-sm" onclick="xuatPhieuLuong()"
+          style="background:#2563eb;color:#fff;border:none;font-weight:700"
+          title="Tick chọn công nhân trong bảng rồi bấm để xuất phiếu lương PNG">
+          📸 Xuất Phiếu Lương
+        </button>
+      </div>
+    </div>
+
+    <!-- Week navigator -->
+    <div class="entry-date-bar" style="gap:10px;flex-wrap:wrap;align-items:center">
+      <button class="btn btn-outline btn-sm" onclick="ccPrevWeek()">← Tuần trước</button>
+      <span id="cc-week-label" style="font-size:13px;font-weight:700;min-width:200px;text-align:center;color:var(--gold)"></span>
+      <button class="btn btn-outline btn-sm" onclick="ccNextWeek()">Tuần sau →</button>
+      <div style="width:1px;height:24px;background:var(--line2)"></div>
+      <span class="bar-label">Từ ngày</span>
+      <input type="date" id="cc-from" class="date-input" onchange="onCCFromChange()">
+      <span class="bar-label">–</span>
+      <input type="date" id="cc-to" class="date-input" readonly style="background:#f0ede8;cursor:default;color:var(--ink3)">
+      <div style="width:1px;height:24px;background:var(--line2)"></div>
+      <span class="bar-label">Công trình</span>
+      <select id="cc-ct-sel" class="bare-select" style="min-width:240px;font-size:12px" onchange="onCCCtSelChange()">
+        <option value="">-- Chọn công trình --</option>
+      </select>
+    </div>
+
+    <!-- Attendance table -->
+    <div class="entry-table-wrap">
+      <div class="table-scroll">
+        <table class="entry-table" style="min-width:1100px">
+          <thead><tr id="cc-thead-row"></tr></thead>
+          <tbody id="cc-tbody"></tbody>
+        </table>
+      </div>
+      <div class="add-row-bar">
+        <button class="btn btn-outline btn-sm" onclick="addCCWorker()">+ Thêm công nhân</button>
+        <span style="font-size:11px;color:var(--ink3);margin-left:8px">
+          <strong>1</strong> = 1 công &nbsp;·&nbsp; <strong>0.5</strong> = nửa công &nbsp;·&nbsp; để trống = nghỉ
+        </span>
+      </div>
+    </div>
+
+    <!-- Summary bar (no duplicate save button) -->
+    <div class="save-bar">
+      <div class="save-bar-info">
+        <span>Tổng công: <strong id="cc-sum-tc">0</strong></span>
+        <span>Tổng lương: <span class="hi" id="cc-sum-luong">0 đ</span></span>
+        <span>Tổng cộng tuần: <span class="hi" style="color:var(--gold)" id="cc-sum-tongcong">0 đ</span></span>
+      </div>
+    </div>
+
+    <!-- Tổng Lương Tuần (theo tên CN) — đưa lên TRÊN lịch sử -->
+    <div style="margin-top:20px">
+      <div class="section-header">
+        <div class="section-title" style="font-size:14px"><span class="dot"></span>Tổng Lương Tuần (theo Công Nhân)</div>
+        <div class="btn-group">
+          <select class="filter-sel" id="cc-tlt-ct" onchange="ccTltPage=1;renderCCTLT()"><option value="">Tất cả CT</option></select>
+          <select class="filter-sel" id="cc-tlt-week" onchange="ccTltPage=1;renderCCTLT()"><option value="">Tất cả tuần</option></select>
+          <button class="btn btn-outline btn-sm" onclick="exportCCTLTCSV()">⬇ Xuất CSV</button>
+        </div>
+      </div>
+      <div class="records-wrap">
+        <div style="overflow-x:auto">
+          <table class="records-table">
+            <thead><tr>
+              <th>Tuần</th><th>Tên CN</th>
+              <th style="text-align:center">CN</th><th style="text-align:center">T2</th>
+              <th style="text-align:center">T3</th><th style="text-align:center">T4</th>
+              <th style="text-align:center">T5</th><th style="text-align:center">T6</th>
+              <th style="text-align:center">T7</th>
+              <th style="text-align:center">TC</th>
+              <th style="text-align:right">TC Lương</th>
+              <th style="text-align:right">Lương TB/Ngày</th>
+              <th>Công Trình</th>
+            </tr></thead>
+            <tbody id="cc-tlt-tbody"></tbody>
+          </table>
+        </div>
+        <div class="pagination" id="cc-tlt-pagination"></div>
+      </div>
+    </div>
+
+    <!-- Lịch sử chấm công TUẦN -->
+    <div style="margin-top:20px">
+      <div class="section-header">
+        <div class="section-title" style="font-size:14px"><span class="dot"></span>Lịch Sử Chấm Công Tuần</div>
+        <div class="btn-group">
+          <select class="filter-sel" id="cc-hist-ct" onchange="ccHistPage=1;renderCCHistory()"><option value="">Tất cả CT</option></select>
+          <select class="filter-sel" id="cc-hist-week" onchange="ccHistPage=1;renderCCHistory()"><option value="">Tất cả tuần</option></select>
+          <button class="btn btn-outline btn-sm" onclick="exportCCHistCSV()">⬇ Xuất CSV</button>
+        </div>
+      </div>
+      <div class="records-wrap">
+        <div style="overflow-x:auto">
+          <table class="records-table">
+            <thead><tr>
+              <th>Tuần</th><th>Công Trình</th><th>Tên CN</th>
+              <th style="text-align:center">CN</th><th style="text-align:center">T2</th>
+              <th style="text-align:center">T3</th><th style="text-align:center">T4</th>
+              <th style="text-align:center">T5</th><th style="text-align:center">T6</th>
+              <th style="text-align:center">T7</th>
+              <th style="text-align:center">TC</th>
+              <th style="text-align:right">Lương/Ngày</th>
+              <th style="text-align:right">Tổng Lương</th>
+              <th style="text-align:right">Phụ Cấp</th>
+              <th style="text-align:right">HĐ Mua Lẻ</th>
+              <th>Nội Dung</th>
+              <th style="text-align:right">Tổng Cộng</th>
+              <th></th>
+            </tr></thead>
+            <tbody id="cc-hist-tbody"></tbody>
+          </table>
+        </div>
+        <div class="pagination" id="cc-hist-pagination"></div>
+      </div>
+    </div>
+
+  </div>
+
+
+  <!-- PAGE: DASHBOARD -->
+  <div class="page" id="page-dashboard">
+    <div class="section-header">
+      <div class="section-title"><span class="dot"></span>📊 Dashboard Tổng Quan</div>
+      <button class="btn btn-outline btn-sm" onclick="renderDashboard()">↻ Làm mới</button>
+    </div>
+
+    <!-- Hàng 1: KPI cards -->
+    <div id="db-kpi-row" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:22px"></div>
+
+    <!-- Hàng 2: Biểu đồ cột tháng + Pie tỷ trọng -->
+    <div style="display:grid;grid-template-columns:1fr 340px;gap:16px;margin-bottom:22px" id="db-charts-row">
+      <div class="records-wrap" style="padding:18px 20px">
+        <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:14px">Chi Phí Theo Tháng</div>
+        <div id="db-bar-chart" style="width:100%;overflow-x:auto"></div>
+      </div>
+      <div class="records-wrap" style="padding:18px 20px">
+        <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:14px">Tỷ Trọng Chi Phí</div>
+        <div id="db-pie-chart" style="display:flex;flex-direction:column;align-items:center"></div>
+      </div>
+    </div>
+
+    <!-- Hàng 3: Top 5 + CT cao nhất -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:22px">
+      <div class="records-wrap" style="padding:18px 20px">
+        <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:14px">🏆 Top 5 Chi Phí Lớn Nhất</div>
+        <div id="db-top5"></div>
+      </div>
+      <div class="records-wrap" style="padding:18px 20px">
+        <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:14px">📊 Chi Phí Theo Công Trình</div>
+        <div id="db-by-ct"></div>
+      </div>
+    </div>
+
+    <!-- Hàng 4: Bảng Lãi/Lỗ tổng hợp -->
+    <div style="margin-bottom:22px">
+      <div class="section-header" style="margin-bottom:14px">
+        <div class="section-title"><span class="dot"></span>📈 Báo Cáo Lãi / Lỗ Theo Công Trình</div>
+        <span style="font-size:11px;color:var(--ink3)">Khai báo hợp đồng tại tab 💵 Doanh Thu</span>
+      </div>
+      <div class="records-wrap" id="db-lailo-wrap" style="padding:4px 0">
+        <div class="db-empty">Đang tải...</div>
+      </div>
+    </div>
+
+    <!-- Hàng 5: Chi tiết từng Công Trình (từ tab Tổng CP CT) -->
+    <div>
+      <div class="section-header" style="margin-bottom:14px">
+        <div class="section-title"><span class="dot"></span>🏗️ Chi Tiết Từng Công Trình</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:12px;color:var(--ink3)">Sắp xếp:</span>
+          <select class="filter-sel" id="ct-sort" onchange="renderCtPage()" style="font-size:12px">
+            <option value="value">Theo giá trị (cao → thấp)</option>
+            <option value="name">Theo tên (A → Z)</option>
+          </select>
+        </div>
+      </div>
+      <div id="ct-grid" class="ct-summary-grid"></div>
+    </div>
+  </div>
+
+  <!-- PAGE: DOANH THU & CÔNG NỢ -->
+  <div class="page" id="page-doanhthu">
+
+    <!-- PHẦN A: Khai báo Hợp đồng -->
+    <div class="section-header">
+      <div class="section-title"><span class="dot"></span>📋 Khai Báo Hợp Đồng</div>
+    </div>
+    <div class="dt-section">
+      <div class="dt-form-grid">
+        <div class="dt-field" style="grid-column:1/-1">
+          <label>Tên Công Trình *</label>
+          <select id="hd-ct-sel" onchange="hdLoadCT()"><option value="">-- Chọn --</option></select>
+        </div>
+        <div class="dt-field">
+          <label>Giá Trị Hợp Đồng (đ)</label>
+          <input type="text" id="hd-giatri" placeholder="VD: 500.000.000" oninput="fmtInputMoney(this)">
+        </div>
+        <div class="dt-field">
+          <label>Phát Sinh Thêm (đ)</label>
+          <input type="text" id="hd-phatsinh" placeholder="VD: 20.000.000" oninput="fmtInputMoney(this)">
+        </div>
+        <div class="dt-field" style="justify-content:flex-end">
+          <label style="visibility:hidden">_</label>
+          <button class="btn btn-gold" style="min-height:38px" onclick="saveHopDong()">💾 Lưu Hợp Đồng</button>
+        </div>
+      </div>
+      <div id="hd-list-wrap" style="margin-top:16px"></div>
+    </div>
+
+    <!-- PHẦN B: Ghi nhận Thu tiền -->
+    <div class="section-header" style="margin-top:8px">
+      <div class="section-title"><span class="dot"></span>💰 Ghi Nhận Thu Tiền</div>
+    </div>
+    <div class="dt-section">
+      <div class="dt-form-grid">
+        <div class="dt-field">
+          <label>Công Trình *</label>
+          <select id="thu-ct-sel"><option value="">-- Chọn --</option></select>
+        </div>
+        <div class="dt-field">
+          <label>Ngày Thu *</label>
+          <input type="date" id="thu-ngay">
+        </div>
+        <div class="dt-field">
+          <label>Số Tiền Thu (đ) *</label>
+          <input type="text" id="thu-tien" placeholder="VD: 100.000.000" oninput="fmtInputMoney(this)">
+        </div>
+        <div class="dt-field">
+          <label>Nội Dung / Đợt</label>
+          <input type="text" id="thu-nd" placeholder="VD: Đợt 1, Nghiệm thu móng...">
+        </div>
+        <div class="dt-field" style="justify-content:flex-end">
+          <label style="visibility:hidden">_</label>
+          <button class="btn btn-gold" style="min-height:38px" onclick="saveThuRecord()">+ Ghi nhận Thu</button>
+        </div>
+      </div>
+
+      <!-- Lịch sử thu -->
+      <div style="margin-top:16px">
+        <div style="font-size:12px;font-weight:700;color:var(--ink2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px">
+          Lịch Sử Thu Tiền <span id="thu-count-badge" style="font-weight:400;color:var(--ink3)"></span>
+        </div>
+        <div class="records-wrap" style="overflow-x:auto">
+          <table class="thu-table">
+            <thead>
+              <tr>
+                <th style="text-align:left">Ngày</th>
+                <th style="text-align:left">Công Trình</th>
+                <th style="text-align:right">Số Tiền</th>
+                <th style="text-align:left">Nội Dung</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="thu-tbody"></tbody>
+          </table>
+          <div id="thu-empty" style="text-align:center;padding:32px;color:var(--ink3);font-size:13px;display:none">
+            Chưa có lịch sử thu tiền
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /content -->
+
+
+<div class="overlay" id="ct-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="modal-title">Chi tiết</h3>
+      <button class="close-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="script.js"></script>
+
+
+<!-- ══ NUMPAD OVERLAY ══════════════════════════════════════════ -->
+<div id="numpad-overlay" onclick="if(event.target===this)closeNumpad()">
+  <div id="numpad-box" onclick="event.stopPropagation()">
+    <div id="numpad-display">
+      <div id="numpad-label">Nhập số tiền</div>
+      <div id="numpad-value"><span id="numpad-text">0</span><span class="np-cursor"></span></div>
+    </div>
+    <button id="numpad-save-btn" onclick="numpadDone()">Lưu</button>
+    <div id="numpad-shortcuts">
+      <button class="np-shortcut orig-shortcuts" onclick="numpadShortcut(100000)">+100K</button>
+      <button class="np-shortcut" onclick="numpadShortcut(200000)">+200K</button>
+      <button class="np-shortcut" onclick="numpadShortcut(500000)">+500K</button>
+      <button class="np-shortcut" onclick="numpadShortcut(1000000)">+1Tr</button>
+      <button class="np-shortcut" onclick="numpadShortcut(2000000)">+2Tr</button>
+      <button class="np-shortcut" onclick="numpadShortcut(5000000)">+5Tr</button>
+      <button class="np-shortcut" onclick="numpadShortcut(10000000)">+10Tr</button>
+    </div>
+
+    <div id="numpad-keys">
+      <button class="np-key clear" onclick="numpadKey('C')">C</button>
+      <button class="np-key op" onclick="numpadKey('÷')">÷</button>
+      <button class="np-key op" onclick="numpadKey('×')">×</button>
+      <button class="np-key del" onclick="numpadKey('⌫')">⌫</button>
+
+      <button class="np-key digit" onclick="numpadKey('7')">7</button>
+      <button class="np-key digit" onclick="numpadKey('8')">8</button>
+      <button class="np-key digit" onclick="numpadKey('9')">9</button>
+      <button class="np-key op" onclick="numpadKey('−')">−</button>
+
+      <button class="np-key digit" onclick="numpadKey('4')">4</button>
+      <button class="np-key digit" onclick="numpadKey('5')">5</button>
+      <button class="np-key digit" onclick="numpadKey('6')">6</button>
+      <button class="np-key op" onclick="numpadKey('+')">+</button>
+
+      <button class="np-key digit" onclick="numpadKey('1')">1</button>
+      <button class="np-key digit" onclick="numpadKey('2')">2</button>
+      <button class="np-key digit" onclick="numpadKey('3')">3</button>
+      <button class="np-key done" onclick="numpadDone()" style="grid-row:span 2">✓</button>
+
+      <button class="np-key digit" onclick="numpadKey('0')">0</button>
+      <button class="np-key zero3" onclick="numpadKey('000')">000</button>
+      <button class="np-key digit" onclick="numpadKey('.')">.</button>
+    </div>
+
+    <!-- Bàn phím riêng cho ô Ngày Công: chỉ số + dấu chấm, nhỏ gọn -->
+    <div id="numpad-day-keys" style="display:none;grid-template-columns:repeat(4,1fr);gap:6px;padding:0 2px">
+      <button class="np-key digit" onclick="numpadKey('7')" style="height:52px;font-size:22px">7</button>
+      <button class="np-key digit" onclick="numpadKey('8')" style="height:52px;font-size:22px">8</button>
+      <button class="np-key digit" onclick="numpadKey('9')" style="height:52px;font-size:22px">9</button>
+      <button class="np-key del"   onclick="numpadKey('⌫')" style="height:52px;font-size:20px">⌫</button>
+
+      <button class="np-key digit" onclick="numpadKey('4')" style="height:52px;font-size:22px">4</button>
+      <button class="np-key digit" onclick="numpadKey('5')" style="height:52px;font-size:22px">5</button>
+      <button class="np-key digit" onclick="numpadKey('6')" style="height:52px;font-size:22px">6</button>
+      <button class="np-key clear" onclick="numpadKey('C')"  style="height:52px;font-size:16px">C</button>
+
+      <button class="np-key digit" onclick="numpadKey('1')" style="height:52px;font-size:22px">1</button>
+      <button class="np-key digit" onclick="numpadKey('2')" style="height:52px;font-size:22px">2</button>
+      <button class="np-key digit" onclick="numpadKey('3')" style="height:52px;font-size:22px">3</button>
+      <button class="np-key done"  onclick="numpadDone()"   style="height:52px;font-size:22px;grid-row:span 2">✓</button>
+
+      <button class="np-key digit" onclick="numpadKey('0')" style="height:52px;font-size:22px;grid-column:span 2">0</button>
+      <button class="np-key digit" onclick="numpadKey('.')" style="height:52px;font-size:22px">.</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>
