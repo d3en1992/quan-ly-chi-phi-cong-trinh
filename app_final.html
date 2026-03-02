@@ -32,14 +32,30 @@ body { font-family: 'IBM Plex Sans', sans-serif; background: var(--bg); color: v
   background: var(--ink); color: #fff;
   position: sticky; top: 0; z-index: 100;
   display: flex; flex-direction: column;
+  /* KHÔNG dùng height cố định — tự giãn khi nút wrap */
+  height: auto;
+  width: 100%;
 }
-/* Hàng 1: Logo + stats + Cloud */
+/* Hàng 1: Logo + stats + nút */
 .topbar-row1 {
-  display: flex; align-items: center; gap: 8px;
-  padding: 6px 16px; min-height: 48px; flex-shrink: 0;
+  display: flex;
+  align-items: center;
   flex-wrap: wrap;
+  /* row-gap + column-gap riêng để khoảng cách dọc đúng khi wrap */
+  row-gap: 6px;
+  column-gap: 8px;
+  padding: 8px 16px;
+  /* TUYỆT ĐỐI không height cố định */
+  height: auto;
+  min-height: 0;
+  box-sizing: border-box;
 }
-.app-name { font-size: 14px; font-weight: 700; letter-spacing: -0.3px; display: flex; align-items: center; gap: 6px; flex: 1 1 auto; min-width: 0; }
+.app-name {
+  font-size: 14px; font-weight: 700; letter-spacing: -0.3px;
+  display: flex; align-items: center; gap: 6px;
+  /* Chiếm không gian còn lại nhưng không ép nút rớt dòng quá sớm */
+  flex: 1 1 auto; min-width: 0;
+}
 .app-name span { color: #f0b429; }
 /* Hàng 2: Nav tabs */
 .topbar-nav {
@@ -47,24 +63,27 @@ body { font-family: 'IBM Plex Sans', sans-serif; background: var(--bg); color: v
   border-top: 1px solid rgba(255,255,255,0.1);
   padding: 0 12px; scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
+  /* Không để nav che content */
+  flex-shrink: 0;
 }
 .topbar-nav::-webkit-scrollbar { display: none; }
 .nav-btn {
   padding: 6px 14px; border: none; background: transparent; color: rgba(255,255,255,0.55);
   font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; font-weight: 500;
   cursor: pointer; border-radius: 5px; transition: all 0.15s; letter-spacing: 0.2px;
+  white-space: nowrap;
 }
 .nav-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
 .nav-btn.active { background: rgba(255,255,255,0.15); color: #fff; font-weight: 600; }
-.app-name { font-size: 15px; font-weight: 700; letter-spacing: -0.3px; display: flex; align-items: center; gap: 8px; }
-.app-name span { color: #f0b429; }
-.topbar-nav { display: flex; gap: 2px; }
+.top-stat {
   display: flex; align-items: center; gap: 6px; padding: 4px 12px;
   background: rgba(255,255,255,0.08); border-radius: 6px; font-size: 12px;
+  flex-shrink: 0;
 }
 .top-stat-label { color: rgba(255,255,255,0.5); }
 .top-stat-val { font-family: 'IBM Plex Mono', monospace; font-weight: 600; color: #f0b429; }
 
+/* Content KHÔNG dùng margin-top cố định — sticky tự đẩy xuống */
 .content { padding: 20px 24px; max-width: 1700px; margin: 0 auto; }
 .page { display: none; }
 .page.active { display: block; }
@@ -283,13 +302,7 @@ select.cell-input {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--line2); border-radius: 3px; }
 @media (max-width: 768px) {
-  /* ── Topbar mobile ── */
-  .topbar-row1 { padding: 0 12px; height: 44px; gap: 8px; }
-  .app-name { font-size: 13px; }
-  .top-stat { padding: 3px 8px; }
-  .top-stat-label { font-size: 10px; }
-  .top-stat-val { font-size: 11px; }
-  #jb-btn { font-size: 11px; padding: 5px 10px; }
+  /* ── Topbar: xem @media 768px trong responsive block bên dưới ── */
   .nav-btn {
     font-size: 11px; padding: 8px 11px; white-space: nowrap;
     flex-shrink: 0; border-radius: 0;
@@ -469,16 +482,16 @@ select.cell-input {
 .np-key.clear { background: #3a3835; color: rgba(255,255,255,0.7); font-size: 16px; }
 
 /* ═══════════════════════════════════════════════════════════
-   TOPBAR — Responsive
+   TOPBAR — Components + Responsive
    ═══════════════════════════════════════════════════════════ */
 
-/* Ngăn horizontal scroll toàn trang */
+/* Chặn horizontal scroll toàn trang */
 html, body { max-width: 100%; overflow-x: hidden; }
 *, *::before, *::after { box-sizing: border-box; }
 
 /* Nhóm giữa: năm + tổng CP */
 .topbar-meta {
-  display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+  display: flex; align-items: center; gap: 8px; flex-shrink: 0;
 }
 .topbar-year-wrap {
   display: flex; align-items: center; gap: 5px;
@@ -486,6 +499,7 @@ html, body { max-width: 100%; overflow-x: hidden; }
 .year-label {
   font-size: 11px; color: rgba(255,255,255,0.5);
   font-weight: 600; text-transform: uppercase; letter-spacing: .5px;
+  white-space: nowrap;
 }
 .year-select {
   background: rgba(255,255,255,0.12);
@@ -496,9 +510,12 @@ html, body { max-width: 100%; overflow-x: hidden; }
   cursor: pointer; outline: none;
 }
 
-/* Nhóm nút hành động */
+/* Nhóm nút hành động — flex-shrink:0 tránh bị ép nhỏ */
 .topbar-controls {
-  display: flex; align-items: center; gap: 5px; flex-shrink: 0;
+  display: flex; align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  flex-wrap: nowrap; /* Desktop: 1 hàng */
 }
 .tb-btn {
   background: rgba(255,255,255,0.12);
@@ -509,6 +526,7 @@ html, body { max-width: 100%; overflow-x: hidden; }
   cursor: pointer; min-width: 38px; min-height: 36px;
   display: flex; align-items: center; justify-content: center;
   transition: background .15s;
+  flex-shrink: 0;
 }
 .tb-btn:hover { background: rgba(255,255,255,0.2); }
 .tb-btn-danger {
@@ -517,46 +535,59 @@ html, body { max-width: 100%; overflow-x: hidden; }
   color: #ff9980;
 }
 .tb-btn-cloud {
-  padding: 7px 13px; font-size: 12px; gap: 4px;
+  padding: 7px 13px; font-size: 12px;
   white-space: nowrap;
 }
 
-/* ── Tablet (≤768px) ── */
+/* ─── Tablet (≤768px) — topbar 2 hàng ──────────────────────
+   Hàng 1: Logo + Năm + Tổng CP
+   Hàng 2: các nút hành động (full width)
+*/
 @media (max-width: 768px) {
-  .content { padding: 14px 14px; }
-  .topbar-row1 { padding: 6px 12px; gap: 8px; }
-}
-
-/* ── Mobile (≤480px) ── */
-@media (max-width: 480px) {
   .topbar-row1 {
-    padding: 6px 10px; gap: 6px;
-    /* 2 hàng: hàng 1 = logo+meta, hàng 2 = controls */
-    flex-wrap: wrap;
+    /* height:auto đã có trong base — KHÔNG override lại */
+    padding: 6px 12px;
+    row-gap: 6px;
+    column-gap: 6px;
+    align-items: center;
   }
-  .app-name { font-size: 13px; }
-  .topbar-meta { order: 1; flex: 1 1 auto; justify-content: flex-end; }
+  .app-name { font-size: 13px; flex: 1 1 auto; }
+  .topbar-meta { flex-shrink: 0; }
   .topbar-controls {
-    order: 2;
+    /* Rớt xuống hàng 2, căn trái, đủ rộng */
+    flex: 0 0 100%;
     width: 100%;
-    justify-content: flex-end;
-    padding-bottom: 4px;
-    gap: 4px;
+    flex-wrap: wrap;   /* cho phép wrap nếu quá nhiều nút */
+    justify-content: flex-start;
+    gap: 5px;
+    padding-bottom: 2px;
   }
   .tb-btn {
-    padding: 8px 10px; font-size: 15px;
-    min-width: 40px; min-height: 38px;
+    min-height: 40px;
+    min-width: 42px;
+    padding: 8px 12px;
+    font-size: 15px;
   }
-  .tb-btn-cloud { font-size: 11px; padding: 8px 10px; }
-  .content { padding: 10px 10px; }
-  .year-select { font-size: 12px; padding: 3px 6px; }
+  .tb-btn-cloud { font-size: 12px; padding: 8px 12px; }
+  .content { padding: 10px 12px 20px; }
 }
 
-/* ── Very small (≤360px) ── */
-@media (max-width: 360px) {
-  .app-name span { display: none; } /* ẩn "Công Trình", giữ icon */
-  .top-stat { display: none; }      /* ẩn Tổng CP, có trong các tab */
+/* ─── Small mobile (≤480px) ────────────────────────────────*/
+@media (max-width: 480px) {
+  .topbar-row1 { padding: 6px 10px; }
+  .top-stat { padding: 3px 8px; font-size: 11px; }
+  .top-stat-label { font-size: 10px; }
+  .year-select { font-size: 12px; padding: 3px 6px; }
+  .content { padding: 10px 10px 20px; }
 }
+
+/* ─── Very small (≤360px) ────────────────────────────────── */
+@media (max-width: 360px) {
+  .app-name span { display: none; } /* ẩn "Công Trình" */
+  .top-stat { display: none; }
+  .tb-btn { min-width: 38px; padding: 8px 9px; }
+}
+
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
@@ -1554,6 +1585,24 @@ function init() {
   buildYearSelect();
   renderTrash();
   renderTodayInvoices();
+
+  // Tự động đo chiều cao topbar và cập nhật padding cho body
+  // Giải quyết vấn đề topbar sticky che khuất content trên mobile khi nút rớt dòng
+  (function syncTopbarHeight() {
+    const topbar = document.querySelector('.topbar');
+    const body   = document.body;
+    function update() {
+      const h = topbar ? topbar.getBoundingClientRect().height : 0;
+      // Thêm CSS variable để dùng ở bất cứ đâu nếu cần
+      document.documentElement.style.setProperty('--topbar-h', h + 'px');
+    }
+    update();
+    // Theo dõi khi topbar thay đổi chiều cao (wrap nút, resize cửa sổ)
+    if (window.ResizeObserver) {
+      new ResizeObserver(update).observe(topbar);
+    }
+    window.addEventListener('resize', update);
+  })();
 
   // Tải dữ liệu mới nhất từ cloud (nếu đã có Bin ID)
   gsLoadAll(function(data) {
