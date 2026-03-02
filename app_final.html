@@ -35,10 +35,11 @@ body { font-family: 'IBM Plex Sans', sans-serif; background: var(--bg); color: v
 }
 /* Hàng 1: Logo + stats + Cloud */
 .topbar-row1 {
-  display: flex; align-items: center; gap: 12px;
-  padding: 0 20px; height: 48px; flex-shrink: 0;
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 16px; min-height: 48px; flex-shrink: 0;
+  flex-wrap: wrap;
 }
-.app-name { font-size: 15px; font-weight: 700; letter-spacing: -0.3px; display: flex; align-items: center; gap: 8px; margin-right: auto; }
+.app-name { font-size: 14px; font-weight: 700; letter-spacing: -0.3px; display: flex; align-items: center; gap: 6px; flex: 1 1 auto; min-width: 0; }
 .app-name span { color: #f0b429; }
 /* Hàng 2: Nav tabs */
 .topbar-nav {
@@ -466,6 +467,96 @@ select.cell-input {
 .np-key.done { background: #1a7a45; color: #fff; font-size: 18px; border-radius: 12px; }
 .np-key.done:active { background: #155c35; }
 .np-key.clear { background: #3a3835; color: rgba(255,255,255,0.7); font-size: 16px; }
+
+/* ═══════════════════════════════════════════════════════════
+   TOPBAR — Responsive
+   ═══════════════════════════════════════════════════════════ */
+
+/* Ngăn horizontal scroll toàn trang */
+html, body { max-width: 100%; overflow-x: hidden; }
+*, *::before, *::after { box-sizing: border-box; }
+
+/* Nhóm giữa: năm + tổng CP */
+.topbar-meta {
+  display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+}
+.topbar-year-wrap {
+  display: flex; align-items: center; gap: 5px;
+}
+.year-label {
+  font-size: 11px; color: rgba(255,255,255,0.5);
+  font-weight: 600; text-transform: uppercase; letter-spacing: .5px;
+}
+.year-select {
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.25);
+  color: #f0b429; border-radius: 6px;
+  padding: 4px 8px; font-size: 13px; font-weight: 700;
+  font-family: 'IBM Plex Sans', sans-serif;
+  cursor: pointer; outline: none;
+}
+
+/* Nhóm nút hành động */
+.topbar-controls {
+  display: flex; align-items: center; gap: 5px; flex-shrink: 0;
+}
+.tb-btn {
+  background: rgba(255,255,255,0.12);
+  border: 1.5px solid rgba(255,255,255,0.25);
+  color: #fff; border-radius: 8px;
+  padding: 7px 11px; font-size: 14px; font-weight: 700;
+  font-family: 'IBM Plex Sans', sans-serif;
+  cursor: pointer; min-width: 38px; min-height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s;
+}
+.tb-btn:hover { background: rgba(255,255,255,0.2); }
+.tb-btn-danger {
+  background: rgba(192,57,43,0.35);
+  border-color: rgba(255,100,80,0.4);
+  color: #ff9980;
+}
+.tb-btn-cloud {
+  padding: 7px 13px; font-size: 12px; gap: 4px;
+  white-space: nowrap;
+}
+
+/* ── Tablet (≤768px) ── */
+@media (max-width: 768px) {
+  .content { padding: 14px 14px; }
+  .topbar-row1 { padding: 6px 12px; gap: 8px; }
+}
+
+/* ── Mobile (≤480px) ── */
+@media (max-width: 480px) {
+  .topbar-row1 {
+    padding: 6px 10px; gap: 6px;
+    /* 2 hàng: hàng 1 = logo+meta, hàng 2 = controls */
+    flex-wrap: wrap;
+  }
+  .app-name { font-size: 13px; }
+  .topbar-meta { order: 1; flex: 1 1 auto; justify-content: flex-end; }
+  .topbar-controls {
+    order: 2;
+    width: 100%;
+    justify-content: flex-end;
+    padding-bottom: 4px;
+    gap: 4px;
+  }
+  .tb-btn {
+    padding: 8px 10px; font-size: 15px;
+    min-width: 40px; min-height: 38px;
+  }
+  .tb-btn-cloud { font-size: 11px; padding: 8px 10px; }
+  .content { padding: 10px 10px; }
+  .year-select { font-size: 12px; padding: 3px 6px; }
+}
+
+/* ── Very small (≤360px) ── */
+@media (max-width: 360px) {
+  .app-name span { display: none; } /* ẩn "Công Trình", giữ icon */
+  .top-stat { display: none; }      /* ẩn Tổng CP, có trong các tab */
+}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
@@ -478,18 +569,26 @@ select.cell-input {
 <div class="topbar">
   <!-- Hàng 1: Logo + Năm + Tổng CP + Cloud -->
   <div class="topbar-row1">
+    <!-- Logo -->
     <div class="app-name">🏗️ Chi Phí <span>Công Trình</span></div>
-    <div style="display:flex;align-items:center;gap:6px">
-      <span style="font-size:11px;color:rgba(255,255,255,0.5);font-weight:600;text-transform:uppercase;letter-spacing:.5px">Năm</span>
-      <select id="global-year" onchange="onYearChange()"
-        style="background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.25);color:#f0b429;border-radius:6px;padding:4px 8px;font-size:13px;font-weight:700;font-family:'IBM Plex Sans',sans-serif;cursor:pointer;outline:none">
-      </select>
+
+    <!-- Nhóm giữa: Năm + Tổng CP -->
+    <div class="topbar-meta">
+      <div class="topbar-year-wrap">
+        <span class="year-label">Năm</span>
+        <select id="global-year" onchange="onYearChange()" class="year-select">
+        </select>
+      </div>
+      <div class="top-stat"><span class="top-stat-label">Tổng CP</span><span class="top-stat-val" id="top-total">0đ</span></div>
     </div>
-    <div class="top-stat"><span class="top-stat-label">Tổng CP</span><span class="top-stat-val" id="top-total">0đ</span></div>
-    <button id="import-btn" onclick="openImportModal()" title="Import Excel vào app" style="background:rgba(255,255,255,0.12);border:1.5px solid rgba(255,255,255,0.25);color:#fff;border-radius:8px;padding:7px 11px;font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;margin-right:4px">📥</button>
-    <button id="export-btn" onclick="openExportModal()" title="Xuất Excel" style="background:rgba(255,255,255,0.12);border:1.5px solid rgba(255,255,255,0.25);color:#fff;border-radius:8px;padding:7px 11px;font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;margin-right:4px">📤</button>
-    <button id="delete-btn" onclick="openDeleteModal()" title="Xóa dữ liệu" style="background:rgba(192,57,43,0.35);border:1.5px solid rgba(255,100,80,0.4);color:#ff9980;border-radius:8px;padding:7px 11px;font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;margin-right:6px">🗑️</button>
-    <button id="jb-btn" onclick="openBinModal()" style="background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.25);color:#fff;border-radius:7px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:'IBM Plex Sans',sans-serif;white-space:nowrap;transition:all .2s">☁️ Cloud</button>
+
+    <!-- Nhóm phải: các nút hành động -->
+    <div class="topbar-controls">
+      <button id="import-btn" onclick="openImportModal()" title="Import Excel" class="tb-btn">📥</button>
+      <button id="export-btn" onclick="openExportModal()" title="Xuất Excel" class="tb-btn">📤</button>
+      <button id="delete-btn" onclick="openDeleteModal()" title="Xóa dữ liệu" class="tb-btn tb-btn-danger">🗑️</button>
+      <button id="jb-btn" onclick="openBinModal()" class="tb-btn tb-btn-cloud">☁️ Cloud</button>
+    </div>
   </div>
   <!-- Hàng 2: Nav tabs -->
   <nav class="topbar-nav">
@@ -2308,13 +2407,73 @@ let ccOffset = 0;
 // Tự động rebuild HĐ nhân công nếu có CC data mà thiếu HĐ (gọi sau khi mọi data đã load)
 function autoRebuildCCIfNeeded() {
   if (!ccData.length) return;
-  const hasCCInv = invoices.some(i => i.ccKey);
-  if (!hasCCInv) {
-    const built = rebuildInvoicesFromCC();
-    invoices = load('inv_v3', []);
-    if (built.weeks > 0 || built.hdml > 0) {
-      console.log('[autoRebuild] Tao ' + built.weeks + ' HD NC, ' + built.hdml + ' HD le tu CC data');
+
+  // Bước 1: Xóa HĐ auto bị lỗi ngay='' (do import cũ thiếu toDate)
+  const badInvs = invoices.filter(i => i.ccKey && !i.ngay);
+  if (badInvs.length > 0) {
+    invoices = invoices.filter(i => !(i.ccKey && !i.ngay));
+    save('inv_v3', invoices);
+    console.log('[autoRebuild] Cleared', badInvs.length, 'bad invs (ngay empty)');
+  }
+
+  // Bước 2: Tìm các tuần CC chưa có HĐ tương ứng trong invoices
+  let totalFixed = 0;
+  ccData.forEach(week => {
+    const { fromDate, ct, workers } = week;
+    if(!fromDate || !ct || !workers || !workers.length) return;
+    const weekPrefix = 'cc|' + fromDate + '|' + ct + '|';
+    const ncKey = weekPrefix + 'nhanCong';
+
+    // Nếu tuần này đã có HĐ nhân công → bỏ qua
+    if(invoices.some(i => i.ccKey === ncKey)) return;
+
+    // Tính toDate
+    let toDate = week.toDate;
+    if(!toDate) {
+      try {
+        const [y,m,d] = fromDate.split('-').map(Number);
+        const sat = new Date(y, m-1, d+6);
+        toDate = sat.getFullYear() + '-' +
+          String(sat.getMonth()+1).padStart(2,'0') + '-' +
+          String(sat.getDate()).padStart(2,'0');
+      } catch(e) { toDate = fromDate; }
     }
+
+    // Tạo HĐ mua lẻ còn thiếu
+    workers.forEach(wk => {
+      if(!wk.hdmuale || wk.hdmuale <= 0) return;
+      const key = weekPrefix + wk.name + '|hdml';
+      if(invoices.some(i => i.ccKey === key)) return;
+      invoices.unshift({
+        id: Date.now() + Math.random(), ccKey: key,
+        ngay: toDate, congtrinh: ct, loai: 'Hóa Đơn Lẻ',
+        nguoi: wk.name, ncc: '',
+        nd: wk.nd || ('HĐ mua lẻ – ' + wk.name + ' (' + viShort(fromDate) + '–' + viShort(toDate) + ')'),
+        tien: wk.hdmuale, thanhtien: wk.hdmuale, _ts: Date.now()
+      });
+    });
+
+    // Tạo HĐ nhân công
+    const totalLuong = workers.reduce((s, wk) => {
+      const tc = (wk.d || []).reduce((a, v) => a + (v || 0), 0);
+      return s + tc * (wk.luong || 0) + (wk.phucap || 0);
+    }, 0);
+    if(totalLuong > 0) {
+      const firstWorker = (workers.find(w => w.name) || {name:''}).name;
+      invoices.unshift({
+        id: Date.now() + Math.random(), ccKey: ncKey,
+        ngay: toDate, congtrinh: ct, loai: 'Nhân Công',
+        nguoi: firstWorker, ncc: '',
+        nd: 'Lương tuần ' + viShort(fromDate) + '–' + viShort(toDate),
+        tien: totalLuong, thanhtien: totalLuong, _ts: Date.now()
+      });
+      totalFixed++;
+    }
+  });
+
+  if(totalFixed > 0 || badInvs.length > 0) {
+    save('inv_v3', invoices);
+    console.log('[autoRebuild] Fixed ' + totalFixed + ' missing weeks, cleared ' + badInvs.length + ' bad');
   }
 }
 let ccHistPage = 1, ccTltPage = 1;
@@ -2695,9 +2854,21 @@ function rebuildInvoicesFromCC() {
 
   // ── Tạo hóa đơn từ chấm công ──────────────────────────────────────
   ccData.forEach(week => {
-    const { fromDate, toDate, ct, workers } = week;
+    const { fromDate, ct, workers } = week;
     if (!fromDate || !ct || !workers || !workers.length) return;
     const weekPrefix = 'cc|' + fromDate + '|' + ct + '|';
+
+    // Tính toDate từ fromDate nếu trống (fromDate=CN, toDate=T7 = +6 ngày)
+    let toDate = week.toDate;
+    if (!toDate) {
+      try {
+        const [y,m,d] = fromDate.split('-').map(Number);
+        const sat = new Date(y, m-1, d+6);
+        toDate = sat.getFullYear() + '-' +
+          String(sat.getMonth()+1).padStart(2,'0') + '-' +
+          String(sat.getDate()).padStart(2,'0');
+      } catch(e) { toDate = fromDate; }
+    }
 
     // HĐ Mua Lẻ — 1 HĐ mỗi worker có hdmuale > 0
     workers.forEach(wk => {
@@ -3991,7 +4162,18 @@ function _processImportWorkbook(wb, filename) {
         const luong = num(r[3]);
         if(!fromDate || !ct || !name) continue;
         const key = fromDate+'|'+ct;
-        if(!weekMap[key]) weekMap[key] = { id:Date.now()+Math.random(), fromDate, toDate:'', ct, workers:[] };
+        if(!weekMap[key]) {
+          // Tính toDate = fromDate + 6 ngày (Thứ 7)
+          let toDate = '';
+          try {
+            const [y,m,d] = fromDate.split('-').map(Number);
+            const sat = new Date(y, m-1, d+6);
+            toDate = sat.getFullYear() + '-' +
+              String(sat.getMonth()+1).padStart(2,'0') + '-' +
+              String(sat.getDate()).padStart(2,'0');
+          } catch(e) { toDate = fromDate; }
+          weekMap[key] = { id:Date.now()+Math.random(), fromDate, toDate, ct, workers:[] };
+        }
         const d = [num(r[6]),num(r[7]),num(r[8]),num(r[9]),num(r[10]),num(r[11]),num(r[12])];
         weekMap[key].workers.push({ name, luong, phucap:num(r[4]), hdmuale:num(r[5]), d, nd:str(r[13]) });
       }
@@ -4124,12 +4306,85 @@ function _confirmImport() {
   if(c.ncc && c.ncc.length)   { const cur=load('cat_ncc',DEFAULTS.nhaCungCap); const merged=[...new Set([...cur,...c.ncc])]; localStorage.setItem('cat_ncc',JSON.stringify(merged)); cats.nhaCungCap=merged; }
   if(c.nguoi && c.nguoi.length){ const cur=load('cat_nguoi',DEFAULTS.nguoiTH); const merged=[...new Set([...cur,...c.nguoi])]; localStorage.setItem('cat_nguoi',JSON.stringify(merged)); cats.nguoiTH=merged; }
 
-  // ── Nếu có dữ liệu chấm công → tự động tạo hóa đơn nhân công ────
-  // (thay thế cho việc bấm "Lưu tuần này" từng tuần một)
+  // ── Xử lý Chấm Công import: sinh HĐ nhân công đúng như saveCCWeek ──
   let builtMsg = '';
   if(result.cc.length) {
-    const built = rebuildInvoicesFromCC();
-    builtMsg = ' | Tạo ' + built.weeks + ' HĐ nhân công' + (built.hdml ? ', ' + built.hdml + ' HĐ lẻ' : '');
+    let totalWeeks = 0, totalHdml = 0;
+
+    result.cc.forEach(week => {
+      const { fromDate, ct, workers } = week;
+      if(!fromDate || !ct || !workers || !workers.length) return;
+
+      // Tính toDate (T7 = fromDate + 6 ngày) nếu trống
+      let toDate = week.toDate;
+      if(!toDate) {
+        try {
+          const [y,m,d] = fromDate.split('-').map(Number);
+          const sat = new Date(y, m-1, d+6);
+          toDate = sat.getFullYear() + '-' +
+            String(sat.getMonth()+1).padStart(2,'0') + '-' +
+            String(sat.getDate()).padStart(2,'0');
+        } catch(e) { toDate = fromDate; }
+      }
+
+      const weekPrefix = 'cc|' + fromDate + '|' + ct + '|';
+
+      // Xóa HĐ cũ của tuần này nếu đã tồn tại (tránh duplicate khi import lại)
+      invoices = invoices.filter(i => !i.ccKey || !i.ccKey.startsWith(weekPrefix));
+
+      // HĐ Mua Lẻ — mỗi worker có hdmuale > 0
+      workers.forEach(wk => {
+        if(!wk.hdmuale || wk.hdmuale <= 0) return;
+        const key = weekPrefix + wk.name + '|hdml';
+        invoices.unshift({
+          id: Date.now() + Math.random(),
+          ccKey: key,
+          ngay: toDate, congtrinh: ct, loai: 'Hóa Đơn Lẻ',
+          nguoi: wk.name, ncc: '',
+          nd: wk.nd || ('HĐ mua lẻ – ' + wk.name + ' (' + viShort(fromDate) + '–' + viShort(toDate) + ')'),
+          tien: wk.hdmuale, thanhtien: wk.hdmuale,
+          _ts: Date.now()
+        });
+        totalHdml++;
+      });
+
+      // HĐ Nhân Công — 1 HĐ tổng mỗi tuần+CT
+      const totalLuong = workers.reduce((s, wk) => {
+        const tc = (wk.d || []).reduce((a, v) => a + (v || 0), 0);
+        return s + tc * (wk.luong || 0) + (wk.phucap || 0);
+      }, 0);
+
+      if(totalLuong > 0) {
+        const ncKey = weekPrefix + 'nhanCong';
+        const firstWorker = (workers.find(w => w.name) || {name:''}).name;
+        invoices.unshift({
+          id: Date.now() + Math.random(),
+          ccKey: ncKey,
+          ngay: toDate, congtrinh: ct, loai: 'Nhân Công',
+          nguoi: firstWorker, ncc: '',
+          nd: 'Lương tuần ' + viShort(fromDate) + '–' + viShort(toDate),
+          tien: totalLuong, thanhtien: totalLuong,
+          _ts: Date.now()
+        });
+        totalWeeks++;
+      }
+
+      // Cập nhật danh mục công trình + công nhân
+      if(!cats.congTrinh.includes(ct)) { cats.congTrinh.push(ct); cats.congTrinh.sort(); }
+      workers.forEach(wk => {
+        if(wk.name && !cats.nguoiTH.includes(wk.name)) cats.nguoiTH.push(wk.name);
+        if(wk.name && !cats.congNhan.includes(wk.name)) cats.congNhan.push(wk.name);
+      });
+    });
+
+    // Lưu lại invoices đã được bổ sung HĐ nhân công
+    save('inv_v3', invoices);
+    // Lưu danh mục đã cập nhật
+    localStorage.setItem('cat_ct',   JSON.stringify(cats.congTrinh));
+    localStorage.setItem('cat_nguoi', JSON.stringify(cats.nguoiTH.sort()));
+    localStorage.setItem('cat_cn',   JSON.stringify(cats.congNhan.sort()));
+
+    builtMsg = ' | ' + totalWeeks + ' HĐ lương' + (totalHdml ? ' + ' + totalHdml + ' HĐ lẻ' : '');
   }
 
   buildYearSelect();
