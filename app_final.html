@@ -1501,22 +1501,7 @@ function importJSON(file) {
       const cc   = (snap.cc||[]).length;
       const tb   = (snap.tb||[]).length;
       const time = snap._time ? new Date(snap._time).toLocaleString('vi-VN') : '(không rõ)';
-      const ok = confirm(
-        '⚠️ KHÔI PHỤC DỮ LIỆU TỪ FILE JSON
-
-' +
-        'File backup lúc: ' + time + '
-' +
-        'Nội dung: ' + inv + ' HĐ · ' + ung + ' tiền ứng · ' + cc + ' tuần CC · ' + tb + ' thiết bị
-
-' +
-        '⚠️ Toàn bộ dữ liệu hiện tại sẽ bị THAY THẾ.
-' +
-        'Hệ thống sẽ tự backup trước khi ghi đè.
-
-' +
-        'Tiếp tục không?'
-      );
+      const ok = confirm('⚠️ KHÔI PHỤC DỮ LIỆU TỪ FILE JSON\n\n' + 'File backup lúc: ' + time + '\n' + 'Nội dung: ' + inv + ' HĐ · ' + ung + ' tiền ứng · ' + cc + ' tuần CC · ' + tb + ' thiết bị\n\n' + '⚠️ Toàn bộ dữ liệu hiện tại sẽ bị THAY THẾ.\nHệ thống sẽ tự backup trước khi ghi đè.\n\nTiếp tục không?');
       if (!ok) return;
 
       // Backup data hiện tại trước khi ghi đè
@@ -1571,15 +1556,7 @@ function restoreFromBackup(index) {
   if (!snap) { toast('❌ Không tìm thấy bản backup này', 'error'); return; }
 
   const time = snap._time ? new Date(snap._time).toLocaleString('vi-VN') : '(không rõ)';
-  const ok = confirm(
-    'Khôi phục bản backup: ' + time + '
-' +
-    (snap.inv||[]).length + ' HĐ · ' + (snap.ung||[]).length + ' tiền ứng · ' +
-    (snap.cc||[]).length + ' tuần CC
-
-' +
-    '⚠️ Data hiện tại sẽ bị thay thế. Tiếp tục?'
-  );
+  const ok = confirm('Khôi phục bản backup: ' + time + '\n' + (snap.inv||[]).length + ' HĐ · ' + (snap.ung||[]).length + ' tiền ứng · ' + (snap.cc||[]).length + ' tuần CC\n\n⚠️ Data hiện tại sẽ bị thay thế. Tiếp tục?');
   if (!ok) return;
 
   _snapshotNow('before-restore');
@@ -2483,7 +2460,9 @@ function _doSaveRows(rows) {
 // ══════════════════════════════
 function buildFilters() {
   const yearInvs = invoices.filter(i=>inActiveYear(i.ngay));
-  const cts = [...new Set(yearInvs.map(i=>i.congtrinh))].filter(Boolean).sort();
+  // Dropdown CT: lọc mềm — CT có bất kỳ phát sinh (HĐ/CC/Ứng) trong năm
+  const allCts = [...new Set(invoices.map(i=>i.congtrinh).filter(Boolean))].sort();
+  const cts = allCts.filter(ct => _entityInYear(ct, 'ct'));
   const loais = [...new Set(yearInvs.map(i=>i.loai))].filter(Boolean).sort();
   const months = [...new Set(yearInvs.map(i=>i.ngay?.slice(0,7)))].filter(Boolean).sort().reverse();
   const ctSel=document.getElementById('f-ct'); const cv=ctSel.value;
@@ -3830,11 +3809,14 @@ function pasteCCWeek(){
 
 // ─── CT selector ──────────────────────────────────────────────────
 function populateCCCtSel(){
-  const allCts=[...new Set([...cats.congTrinh,...ccData.map(w=>w.ct)].filter(Boolean))].sort();
-  const sel=document.getElementById('cc-ct-sel');
-  const cur=sel.value;
-  sel.innerHTML='<option value="">-- Chọn công trình --</option>'+
-    allCts.map(v=>`<option value="${x(v)}" ${v===cur?'selected':''}>${x(v)}</option>`).join('');
+  // Lấy tất cả CT từ danh mục + ccData
+  const allCts = [...new Set([...cats.congTrinh, ...ccData.map(w=>w.ct)].filter(Boolean))].sort();
+  // Lọc mềm: chỉ hiện CT có phát sinh trong năm đang chọn (hoặc "Tất cả năm")
+  const filtered = allCts.filter(ct => _entityInYear(ct, 'ct'));
+  const sel = document.getElementById('cc-ct-sel');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">-- Chọn công trình --</option>' +
+    filtered.map(v => `<option value="${x(v)}" ${v===cur?'selected':''}>${x(v)}</option>`).join('');
 }
 
 function onCCCtSelChange(){
@@ -4125,22 +4107,64 @@ function onYearChange() {
 }
 
 function _refreshAllTabs() {
-  const activePage=document.querySelector('.page.active');
-  if(!activePage) return;
-  const pid=activePage.id.replace('page-','');
-  if(pid==='tatca') { buildFilters(); filterAndRender(); renderTrash(); }
-  if(pid==='chamcong') { renderCCHistory(); renderCCTLT(); }
-  if(pid==='nhapung') { buildUngFilters(); filterAndRenderUng(); }
-  if(pid==='ct') renderCtPage();
-  if(pid==='nhap') renderTodayInvoices();
+  // Refresh DATA cho tất cả tab (không chỉ tab đang active)
+  // → đảm bảo khi đổi năm, mọi tab đều nhất quán khi mở
+
+  // Tầng 1: Rebuild filter dropdowns theo năm mới
+  buildFilters();
+  buildUngFilters();
+  buildCCHistFilters();
+  populateCCCtSel();        // dropdown CT trong Chấm Công
+  tbPopulateSels();         // dropdown CT trong Thiết Bị
+
+  // Tầng 2: Render lại nội dung TẤT CẢ các tab
+  filterAndRender();        // Tất cả CP
+  renderTrash();
+  filterAndRenderUng();     // Tiền Ứng
+  renderCtPage();           // Tổng CP CT
+  renderCCHistory();        // Lịch sử CC
+  renderCCTLT();            // Tổng lương tuần
+  renderTodayInvoices();    // HĐ trong ngày (tab Nhập)
+  tbRenderList();           // Thiết Bị
+  renderDashboard();        // Dashboard
+
+  // Topbar tổng
   updateTop();
 }
 
 // ── Lọc năm helper ────────────────────────────────────────────────
+// Tầng 1 — lọc tuyệt đối theo ngày của 1 record
 function inActiveYear(dateStr) {
   if(!dateStr) return false;
   if(activeYear === 0) return true; // "Tất cả năm"
-  return parseInt(dateStr.split('-')[0])===activeYear;
+  return parseInt(dateStr.split('-')[0]) === activeYear;
+}
+
+// Tầng 2 — lọc mềm cho entity (CT, CN, TB)
+// Trả về true nếu entity có BẤT KỲ phát sinh nào trong năm đang chọn
+// Dùng cho: dropdown, danh mục, tổng hợp
+function _entityInYear(name, type) {
+  if (activeYear === 0) return true; // "Tất cả năm" → hiện hết
+  if (!name) return false;
+  if (type === 'ct') {
+    // CT xuất hiện nếu có HĐ, CC, hoặc tiền ứng trong năm
+    return invoices.some(i  => inActiveYear(i.ngay)      && i.congtrinh === name)
+        || ccData.some(w    => inActiveYear(w.fromDate)   && w.ct        === name)
+        || ungRecords.some(r => inActiveYear(r.ngay)      && r.congtrinh === name);
+  }
+  if (type === 'cn') {
+    // Công nhân xuất hiện nếu có tuần chấm công trong năm
+    return ccData.some(w => inActiveYear(w.fromDate)
+        && (w.workers || []).some(wk => wk.name === name));
+  }
+  if (type === 'tb') {
+    // Thiết bị: hiện nếu CT của nó hoạt động trong năm HOẶC đang hoạt động
+    return tbData.some(r => r.ten === name && (
+      r.tinhtrang === 'Đang hoạt động'
+      || _entityInYear(r.ct, 'ct')
+    ));
+  }
+  return true;
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -4539,15 +4563,20 @@ let tbData = load('tb_v1', []);
 // ── Populate selects ──────────────────────────────────────────────
 function tbPopulateSels() {
   const allCts = [...new Set([...cats.congTrinh, ...tbData.map(r=>r.ct)].filter(Boolean))].sort();
+  // Lọc mềm: CT có phát sinh trong năm đang chọn
+  const filtered = allCts.filter(ct => _entityInYear(ct, 'ct'));
+
   const sel = document.getElementById('tb-ct-sel');
   const cur = sel.value;
+  // Select nhập mới: dùng allCts (không lọc năm — cho phép gán TB vào CT bất kỳ)
   sel.innerHTML = '<option value="">-- Chọn công trình --</option>' +
     allCts.map(v=>`<option value="${x(v)}" ${v===cur?'selected':''}>${x(v)}</option>`).join('');
 
+  // Filter danh sách: chỉ CT có liên quan năm đang chọn
   const fSel = document.getElementById('tb-filter-ct');
   const fCur = fSel.value;
   fSel.innerHTML = '<option value="">Tất cả công trình</option>' +
-    allCts.map(v=>`<option value="${x(v)}" ${v===fCur?'selected':''}>${x(v)}</option>`).join('');
+    filtered.map(v=>`<option value="${x(v)}" ${v===fCur?'selected':''}>${x(v)}</option>`).join('');
 }
 
 // ── Build nhập bảng ───────────────────────────────────────────────
@@ -4668,6 +4697,12 @@ function tbRenderList() {
   let filtered = tbData.filter(r => {
     if (fCt && r.ct !== fCt) return false;
     if (fTt && r.tinhtrang !== fTt) return false;
+    // Lọc mềm theo năm: TB của CT có phát sinh năm đang chọn, HOẶC đang hoạt động
+    if (activeYear !== 0) {
+      const ctActive = _entityInYear(r.ct, 'ct');
+      const isRunning = r.tinhtrang === 'Đang hoạt động';
+      if (!ctActive && !isRunning) return false;
+    }
     return true;
   });
 
@@ -5450,8 +5485,7 @@ function _confirmDelete() {
   }
 
   const yrLabel = yr===0 ? 'TẤT CẢ NĂM' : String(yr);
-  if(!confirm(`Xác nhận XÓA dữ liệu năm ${yrLabel}?
-Thao tác này không thể hoàn tác!`)) return;
+  if(!confirm('Xác nhận XÓA dữ liệu năm ' + yrLabel + '?\nThao tác này không thể hoàn tác!')) return;
 
   document.getElementById('delete-modal-overlay').style.display = 'none';
 
