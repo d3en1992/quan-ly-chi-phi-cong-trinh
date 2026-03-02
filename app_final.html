@@ -802,6 +802,55 @@ html, body { max-width: 100%; overflow-x: hidden; }
   </div>
 </div>
 
+<!-- ── Template Phiếu Tạm Ứng (ẩn, dùng để chụp ảnh) ── -->
+<div id="phieu-ung-template" style="
+  display:none; position:fixed; left:-9999px; top:0;
+  width:680px; background:#ffffff; padding:32px 36px;
+  box-sizing:border-box; font-family:'IBM Plex Sans',Arial,sans-serif; color:#1a1814;">
+  <div style="text-align:center;margin-bottom:20px;border-bottom:2px solid #1a1814;padding-bottom:16px">
+    <div style="font-size:20px;font-weight:800;letter-spacing:1px">PHIẾU TẠM ỨNG TIỀN</div>
+    <div id="pul-ct-name" style="font-size:13px;color:#555;margin-top:4px"></div>
+  </div>
+  <div style="display:flex;justify-content:space-between;margin-bottom:18px;font-size:12px;color:#555">
+    <div>Công trình: <b id="pul-ct-label"></b></div>
+    <div>Ngày in: <b id="pul-date"></b></div>
+  </div>
+  <table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:12px">
+    <thead>
+      <tr>
+        <th style="background:#1a1814;color:#fff;padding:8px 10px;text-align:left;white-space:nowrap">Ngày Ứng</th>
+        <th style="background:#1a1814;color:#fff;padding:8px 10px;text-align:left">Người Nhận</th>
+        <th style="background:#1a1814;color:#fff;padding:8px 10px;text-align:left">Nội Dung</th>
+        <th style="background:#1a1814;color:#fff;padding:8px 10px;text-align:right;white-space:nowrap">Số Tiền</th>
+      </tr>
+    </thead>
+    <tbody id="pul-tbody"></tbody>
+    <tfoot>
+      <tr style="background:#f5f0e8">
+        <td colspan="3"
+          style="padding:9px 10px;text-align:right;font-weight:700;border-top:2px solid #1a1814">
+          TỔNG CỘNG
+        </td>
+        <td id="pul-total-cell"
+          style="padding:9px 10px;text-align:right;font-weight:700;border-top:2px solid #1a1814"></td>
+      </tr>
+    </tfoot>
+  </table>
+  <div style="border-top:2px solid #1a1814;padding-top:16px;text-align:center">
+    <div id="pul-grand-total"
+      style="font-size:18px;font-weight:800;color:#c8870a;letter-spacing:.5px"></div>
+    <div style="font-size:11px;color:#888;margin-top:2px">( Bằng chữ — vui lòng ghi tay )</div>
+    <div style="display:flex;justify-content:space-between;margin-top:28px;font-size:12px;color:#555">
+      <div style="text-align:center;min-width:140px">
+        <div style="border-top:1px solid #aaa;margin-top:40px;padding-top:4px">Người lập phiếu</div>
+      </div>
+      <div style="text-align:center;min-width:140px">
+        <div style="border-top:1px solid #aaa;margin-top:40px;padding-top:4px">Người nhận tiền</div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <input type="file" id="import-file-input" accept=".xlsx,.xls" style="display:none" onchange="handleImportFile(event)">
 <input type="file" id="import-json-input" accept=".json" style="display:none" onchange="importJSON(this.files[0])">
 
@@ -1184,7 +1233,14 @@ html, body { max-width: 100%; overflow-x: hidden; }
     <div style="margin-top:24px">
       <div class="section-header">
         <div class="section-title"><span class="dot"></span>Tổng Tiền Ứng Thầu Phụ / Nhà Cung Cấp</div>
-        <button class="btn btn-outline" onclick="exportUngAllCSV()">⬇ Xuất CSV</button>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn btn-outline" onclick="exportUngAllCSV()">⬇ Xuất CSV</button>
+          <button class="btn btn-sm" onclick="exportUngToImage()"
+            style="background:#2563eb;color:#fff;border:none;font-weight:700"
+            title="Tick chọn dòng rồi bấm để xuất phiếu tạm ứng PNG">
+            📸 Xuất Phiếu Ứng
+          </button>
+        </div>
       </div>
       <div class="records-wrap">
         <div class="records-toolbar">
@@ -1200,6 +1256,10 @@ html, body { max-width: 100%; overflow-x: hidden; }
           <table class="records-table">
             <thead>
               <tr>
+                <th style="width:32px;text-align:center">
+                  <input type="checkbox" id="ung-chk-all" title="Chọn tất cả"
+                    onchange="document.querySelectorAll('.ung-row-chk').forEach(x=>x.checked=this.checked)">
+                </th>
                 <th>Ngày</th>
                 <th>Thầu Phụ / Nhà CC</th>
                 <th>Công Trình</th>
@@ -3214,10 +3274,14 @@ function renderUngTable() {
   const sumTien=filteredUng.reduce((s,r)=>s+r.tien,0);
 
   if(!paged.length) {
-    tbody.innerHTML=`<tr class="empty-row"><td colspan="6">Không có dữ liệu tiền ứng nào</td></tr>`;
+    tbody.innerHTML=`<tr class="empty-row"><td colspan="7">Không có dữ liệu tiền ứng nào</td></tr>`;
     document.getElementById('ung-pagination').innerHTML=''; return;
   }
   tbody.innerHTML = paged.map(r=>`<tr>
+    <td style="text-align:center;padding:4px">
+      <input type="checkbox" class="ung-row-chk" data-id="${r.id}"
+        style="width:15px;height:15px;cursor:pointer">
+    </td>
     <td style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink2)">${r.ngay}</td>
     <td style="font-weight:600;font-size:12px">${x(r.tp)}</td>
     <td style="color:var(--ink2)">${x(r.congtrinh||'—')}</td>
@@ -6365,6 +6429,17 @@ function initDoanhThu() {
 // Ctrl+F → "MODULE: PHIẾU LƯƠNG"
 // ══════════════════════════════════════════════════════════════
 
+function removeVietnameseTones(str) {
+  if (!str) return '';
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')   // xóa dấu
+    .replace(/đ/g, 'd').replace(/Đ/g, 'D')
+    .replace(/[^a-zA-Z0-9\s_]/g, '')    // xóa ký tự đặc biệt
+    .trim()
+    .replace(/\s+/g, '_');
+}
+
 function xuatPhieuLuong() {
   // 1. Thu thập dòng được tick
   const rows = [];
@@ -6421,7 +6496,12 @@ function xuatPhieuLuong() {
   tpl.style.display = 'block';
 
   // 5. Chụp bằng html2canvas
-  const safeCT = ct.replace(/[^a-zA-Z0-9_\-À-ỹ\s]/g, '').trim().replace(/\s+/g, '_');
+  // Tạo tên file: Phieuluong_TênCT_Thợ1_3cong_Thợ2_4cong.png
+  const safeCT = removeVietnameseTones(ct);
+  const workerParts = rows.map(r =>
+    removeVietnameseTones(r.name) + '_' + r.tc + 'cong'
+  ).join('_');
+  const fileName = 'Phieuluong_' + safeCT + '_' + workerParts;
   toast('⏳ Đang tạo phiếu lương...', 'info');
 
   // Đợi font render
@@ -6435,7 +6515,7 @@ function xuatPhieuLuong() {
     }).then(canvas => {
       tpl.style.display = 'none';
       const link = document.createElement('a');
-      link.download = 'PhieuLuong_' + safeCT + '_' + (fromDt || 'tuan') + '.png';
+      link.download = fileName + '.png';
       link.href = canvas.toDataURL('image/png');
       link.click();
       toast('✅ Đã xuất phiếu lương ' + rows.length + ' người!', 'success');
@@ -6448,6 +6528,79 @@ function xuatPhieuLuong() {
 }
 
 // Helper: format ngày YYYY-MM-DD → DD/MM/YYYY
+function exportUngToImage() {
+  // 1. Lấy các dòng được tick (dựa vào data-id khớp filteredUng)
+  const checkedIds = new Set(
+    [...document.querySelectorAll('.ung-row-chk:checked')].map(el => el.dataset.id)
+  );
+  if (!checkedIds.size) {
+    toast('⚠️ Vui lòng tick chọn ít nhất 1 khoản ứng!', 'error');
+    return;
+  }
+  const rows = filteredUng.filter(r => checkedIds.has(String(r.id)));
+  if (!rows.length) {
+    toast('⚠️ Không tìm thấy dữ liệu — thử lọc lại rồi tick chọn!', 'error');
+    return;
+  }
+
+  // 2. Thông tin chung
+  const ct       = rows[0]?.congtrinh || '(Chưa rõ CT)';
+  const tongTien = rows.reduce((s, r) => s + (r.tien || 0), 0);
+
+  // 3. Đổ dữ liệu vào template
+  document.getElementById('pul-ct-name').textContent  = ct;
+  document.getElementById('pul-ct-label').textContent = ct;
+  document.getElementById('pul-date').textContent     = new Date().toLocaleDateString('vi-VN');
+
+  document.getElementById('pul-tbody').innerHTML = rows.map((r, i) => `
+    <tr style="${i % 2 === 1 ? 'background:#f9f7f4' : ''}">
+      <td style="padding:8px 10px;white-space:nowrap">${r.ngay}</td>
+      <td style="padding:8px 10px;font-weight:600">${x(r.tp || '—')}</td>
+      <td style="padding:8px 10px;color:#555">${x(r.nd || '—')}</td>
+      <td style="padding:8px 10px;text-align:right;font-weight:700;color:#c8870a;white-space:nowrap">
+        ${numFmt(r.tien || 0)} đ
+      </td>
+    </tr>`).join('');
+
+  document.getElementById('pul-total-cell').textContent   = numFmt(tongTien) + ' đ';
+  document.getElementById('pul-grand-total').textContent  =
+    'TỔNG TIỀN TẠM ỨNG: ' + numFmt(tongTien) + ' đồng';
+
+  // 4. Tạo tên file:  Phieuung_TenCT_TenTP1_500k_TenTP2_300k.png
+  const safeCT = removeVietnameseTones(ct);
+  const tpMap  = {};
+  rows.forEach(r => {
+    const key = r.tp || 'KhongRo';
+    tpMap[key] = (tpMap[key] || 0) + (r.tien || 0);
+  });
+  const workerParts = Object.entries(tpMap)
+    .map(([tp, tien]) => removeVietnameseTones(tp) + '_' + Math.round(tien / 1000) + 'k')
+    .join('_');
+  const fileName = 'Phieuung_' + safeCT + '_' + workerParts;
+
+  // 5. Chụp ảnh
+  const tpl = document.getElementById('phieu-ung-template');
+  tpl.style.display = 'block';
+  toast('⏳ Đang tạo phiếu tạm ứng...', 'info');
+
+  document.fonts.ready.then(() => {
+    html2canvas(tpl, {
+      scale: 2, backgroundColor: '#ffffff',
+      useCORS: true, logging: false, windowWidth: 760
+    }).then(canvas => {
+      tpl.style.display = 'none';
+      const link = document.createElement('a');
+      link.download = fileName + '.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      toast('✅ Đã xuất phiếu tạm ứng ' + rows.length + ' dòng!', 'success');
+    }).catch(err => {
+      tpl.style.display = 'none';
+      toast('❌ Lỗi khi tạo ảnh: ' + err.message, 'error');
+    });
+  });
+}
+
 function _fmtDate(iso) {
   if (!iso) return '';
   const [y, m, d] = iso.split('-');
