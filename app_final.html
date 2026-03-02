@@ -465,15 +465,7 @@ select.cell-input {
 <body>
 
 <!-- ── Bin ID Modal ── -->
-<div id="bin-modal-overlay" onclick="if(event.target===this)closeBinModal()" style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.55);align-items:center;justify-content:center;flex-direction:column">
-  <div style="background:#fefefe;border-radius:14px;padding:24px 24px 20px;width:min(460px,94vw);box-shadow:0 4px 24px rgba(0,0,0,.15);font-family:'IBM Plex Sans',sans-serif" onclick="event.stopPropagation()">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <h2 style="font-size:16px;font-weight:700;margin:0">☁️ Đồng bộ Cloud</h2>
-      <button onclick="closeBinModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#9a9590;line-height:1">✕</button>
-    </div>
-    <div id="bin-modal-body"></div>
-  </div>
-</div>
+
 
 <div class="topbar">
   <!-- Hàng 1: Logo + Năm + Tổng CP + Cloud -->
@@ -989,18 +981,38 @@ const CATS = [
 // ══════════════════════════════════════════════════════════
 //  JSONBIN.IO SYNC — lưu trữ đám mây, đồng bộ đa thiết bị
 // ══════════════════════════════════════════════════════════
-const JB_KEY  = '$2a$10$r5DjIcTFNpYbiL01yaLXKeBsYLPi.AK8593Yf.Hr3ZwCcznyQsJ6q';
-const JB_BASE = 'https://api.jsonbin.io/v3/b';
-const JB_HDR  = { 'Content-Type':'application/json', 'X-Master-Key': JB_KEY };
-const MASTER_KEY = 'jb_master_id';   // localStorage key lưu ID bin master
-const BIN_ID_KEY = 'jb_bin_id';      // legacy (backward compat)
+// ══════════════════════════════════════════════════════════
+// FIREBASE FIRESTORE CLOUD SYNC
+// REST API — không cần backend, không cần cài gì thêm
+// ══════════════════════════════════════════════════════════
 
-// ══ NÉN / GIẢI NÉN ═══════════════════════════════════════════
+// ── Cấu hình Firebase (điền vào sau khi tạo project) ──────
+const FB_CONFIG = {
+  apiKey:    '',           // Web API Key từ Project Settings
+  projectId: '',           // Project ID từ Project Settings
+};
+const FS_BASE = () =>
+  `https://firestore.googleapis.com/v1/projects/${FB_CONFIG.projectId}/databases/(default)/documents/cpct_data`;
+
+// ── Keys localStorage ──────────────────────────────────────
+const FB_CFG_KEY   = 'fb_config';    // lưu apiKey + projectId
+const FB_CACHE_KEY = 'fb_bins_cache';// cache map năm → docId
+
+// ── Load config từ localStorage ───────────────────────────
+(function() {
+  const saved = _loadLS(FB_CFG_KEY);
+  if (saved) { FB_CONFIG.apiKey = saved.apiKey||''; FB_CONFIG.projectId = saved.projectId||''; }
+})();
+
+function _loadLS(k) {
+  try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch { return null; }
+}
+function _saveLS(k, v) { localStorage.setItem(k, JSON.stringify(v)); }
+
+function fbReady() { return FB_CONFIG.apiKey && FB_CONFIG.projectId; }
+
+// ══ NÉN / GIẢI NÉN ═══════════════════════════════════════
 // inv: id→i ngay→d congtrinh→c loai→l nguoi→n ncc→s nd→t tien→p thanhtien→q sl→k ccKey→x _ts→m
-// cc week: id→i fromDate→f toDate→e ct→c workers→w
-// cc worker: name→n d→d luong→l phucap→p hdmuale→h nd→t
-// ung: id→i ngay→d tp→t congtrinh→c tien→p nd→n
-// tb: id→i ct→c ten→t soluong→s tinhtrang→r nguoi→n ghichu→g ngay→d
 function compressInv(arr) {
   return arr.map(o=>{const r={};
     if(o.id!==undefined)r.i=o.id; if(o.ngay)r.d=o.ngay; if(o.congtrinh)r.c=o.congtrinh;
@@ -1009,29 +1021,29 @@ function compressInv(arr) {
     if(o.sl&&o.sl!==1)r.k=o.sl; if(o.ccKey)r.x=o.ccKey; if(o._ts)r.m=o._ts; return r;});
 }
 function expandInv(arr) {
-  return arr.map(o=>({id:o.i,ngay:o.d,congtrinh:o.c,loai:o.l,nguoi:o.n||'',ncc:o.s||'',
+  return (arr||[]).map(o=>({id:o.i,ngay:o.d,congtrinh:o.c,loai:o.l,nguoi:o.n||'',ncc:o.s||'',
     nd:o.t||'',tien:o.p||0,thanhtien:o.q||(o.p||0),sl:o.k||undefined,ccKey:o.x||undefined,_ts:o.m||undefined}));
 }
 function compressCC(arr) {
-  return arr.map(w=>({i:w.id,f:w.fromDate,e:w.toDate,c:w.ct,
+  return (arr||[]).map(w=>({i:w.id,f:w.fromDate,e:w.toDate,c:w.ct,
     w:w.workers.map(wk=>{const r={n:wk.name,d:wk.d,l:wk.luong};
       if(wk.phucap)r.p=wk.phucap; if(wk.hdmuale)r.h=wk.hdmuale; if(wk.nd)r.t=wk.nd; return r;})}));
 }
 function expandCC(arr) {
-  return arr.map(w=>({id:w.i,fromDate:w.f,toDate:w.e,ct:w.c,
-    workers:w.w.map(wk=>({name:wk.n,d:wk.d,luong:wk.l||0,phucap:wk.p||0,hdmuale:wk.h||0,nd:wk.t||''}))}));
+  return (arr||[]).map(w=>({id:w.i,fromDate:w.f,toDate:w.e,ct:w.c,
+    workers:(w.w||[]).map(wk=>({name:wk.n,d:wk.d,luong:wk.l||0,phucap:wk.p||0,hdmuale:wk.h||0,nd:wk.t||''}))}));
 }
 function compressUng(arr) {
-  return arr.map(o=>({i:o.id,d:o.ngay,t:o.tp||o.ncc||'',c:o.congtrinh,p:o.tien||0,n:o.nd||''}));
+  return (arr||[]).map(o=>({i:o.id,d:o.ngay,t:o.tp||o.ncc||'',c:o.congtrinh,p:o.tien||0,n:o.nd||''}));
 }
 function expandUng(arr) {
-  return arr.map(o=>({id:o.i,ngay:o.d,tp:o.t,congtrinh:o.c,tien:o.p||0,nd:o.n||''}));
+  return (arr||[]).map(o=>({id:o.i,ngay:o.d,tp:o.t,congtrinh:o.c,tien:o.p||0,nd:o.n||''}));
 }
 function compressTb(arr) {
-  return arr.map(o=>({i:o.id,c:o.ct,t:o.ten,s:o.soluong||0,r:o.tinhtrang,n:o.nguoi||'',g:o.ghichu||'',d:o.ngay||''}));
+  return (arr||[]).map(o=>({i:o.id,c:o.ct,t:o.ten,s:o.soluong||0,r:o.tinhtrang,n:o.nguoi||'',g:o.ghichu||'',d:o.ngay||''}));
 }
 function expandTb(arr) {
-  return arr.map(o=>({id:o.i,ct:o.c,ten:o.t,soluong:o.s||0,tinhtrang:o.r||'Đang hoạt động',nguoi:o.n||'',ghichu:o.g||'',ngay:o.d||''}));
+  return (arr||[]).map(o=>({id:o.i,ct:o.c,ten:o.t,soluong:o.s||0,tinhtrang:o.r||'Đang hoạt động',nguoi:o.n||'',ghichu:o.g||'',ngay:o.d||''}));
 }
 
 function load(k, def) {
@@ -1040,20 +1052,59 @@ function load(k, def) {
 function save(k, v) {
   clearTimeout(save._t);
   localStorage.setItem(k, JSON.stringify(v));
-  save._t = setTimeout(jbPushAll, 2500);
+  save._t = setTimeout(fbPushAll, 2500);
 }
 
-// ══ HỆ THỐNG MASTER BIN ══════════════════════════════════════
-// Chỉ cần 1 Master Bin ID. Master lưu map { bins: {"2025":"id..","cats":"id.."} }
-// App tự tạo bin con cho từng năm và lưu vào master.
+// ══ FIRESTORE DOCUMENT FORMAT ═════════════════════════════
+// Firestore lưu dạng {fields: {key: {stringValue/integerValue/...}}}
+// Ta dùng 1 field "data" chứa toàn bộ JSON nén dạng stringValue
 
-let _masterBins = null; // cache: { "2025": "binId", "cats": "binId", ... }
+function fsWrap(obj) {
+  // Wrap object thành Firestore document format
+  return { fields: { data: { stringValue: JSON.stringify(obj) } } };
+}
+function fsUnwrap(doc) {
+  // Unwrap Firestore document về plain object
+  if (!doc || !doc.fields || !doc.fields.data) return null;
+  try { return JSON.parse(doc.fields.data.stringValue); } catch { return null; }
+}
 
-function getMasterId()  { return localStorage.getItem(MASTER_KEY) || localStorage.getItem(BIN_ID_KEY) || ''; }
-function getMasterBins(){ return _masterBins || load('jb_bins_cache', {}); }
-function saveMasterBins(bins){ _masterBins=bins; localStorage.setItem('jb_bins_cache', JSON.stringify(bins)); }
+// ── Doc ID helpers ─────────────────────────────────────────
+function fbDocYear(yr)  { return `y${yr}`; }
+function fbDocCats()    { return 'cats'; }
 
-// Kích thước ước tính data năm
+// ── Build payload cho từng loại ───────────────────────────
+function fbYearPayload(yr) {
+  const y = yr || activeYear || new Date().getFullYear();
+  const ys = String(y);
+  return { v:3, yr:y,
+    i: compressInv(load('inv_v3',[]).filter(x=>x.ngay&&x.ngay.startsWith(ys))),
+    u: compressUng(load('ung_v1',[]).filter(x=>x.ngay&&x.ngay.startsWith(ys))),
+    c: compressCC(load('cc_v2',[]).filter(x=>x.fromDate&&x.fromDate.startsWith(ys))),
+    t: compressTb(load('tb_v1',[]).filter(x=>x.ngay&&x.ngay.startsWith(ys))) };
+}
+function fbCatsPayload() {
+  return { v:3, cats:{ct:load('cat_ct',DEFAULTS.congTrinh),loai:load('cat_loai',DEFAULTS.loaiChiPhi),
+    ncc:load('cat_ncc',DEFAULTS.nhaCungCap),nguoi:load('cat_nguoi',DEFAULTS.nguoiTH)} };
+}
+
+// ── Firebase REST helpers ──────────────────────────────────
+function fsUrl(docId) {
+  return `${FS_BASE()}/${docId}?key=${FB_CONFIG.apiKey}`;
+}
+function fsGet(docId) {
+  return fetch(fsUrl(docId)).then(r=>r.json());
+}
+function fsSet(docId, payload) {
+  // PATCH = upsert (tạo hoặc cập nhật)
+  return fetch(`${FS_BASE()}/${docId}?key=${FB_CONFIG.apiKey}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(fsWrap(payload))
+  }).then(r=>r.json());
+}
+
+// ── Estimate size ──────────────────────────────────────────
 function estimateYearKb(yr) {
   const ys = String(yr || activeYear || new Date().getFullYear());
   const data = {
@@ -1064,236 +1115,90 @@ function estimateYearKb(yr) {
   return Math.round(JSON.stringify(data).length/1024*10)/10;
 }
 
-// Build dữ liệu nén
-function jbYearData(yr) {
-  const y = yr || activeYear || new Date().getFullYear();
-  const ys = String(y);
-  return { v:3, yr:y,
-    i: compressInv(load('inv_v3',[]).filter(x=>x.ngay&&x.ngay.startsWith(ys))),
-    u: compressUng(load('ung_v1',[]).filter(x=>x.ngay&&x.ngay.startsWith(ys))),
-    c: compressCC(load('cc_v2',[]).filter(x=>x.fromDate&&x.fromDate.startsWith(ys))),
-    t: compressTb(load('tb_v1',[]).filter(x=>x.ngay&&x.ngay.startsWith(ys))) };
-}
-function jbCatsData() {
-  return { v:3, cats:{ct:load('cat_ct',DEFAULTS.congTrinh),loai:load('cat_loai',DEFAULTS.loaiChiPhi),
-    ncc:load('cat_ncc',DEFAULTS.nhaCungCap),nguoi:load('cat_nguoi',DEFAULTS.nguoiTH)} };
-}
-function jbMasterData(bins) {
-  return { v:3, type:'master', bins: bins || getMasterBins() };
-}
-
-// Tạo 1 bin con, resolve(binId) khi xong
-function _createBin(name, data) {
-  return fetch(JB_BASE,{method:'POST',headers:{...JB_HDR,'X-Bin-Name':name,'X-Bin-Private':'false'},
-    body:JSON.stringify(data)}).then(r=>r.json()).then(res=>{
-    if(res.metadata&&res.metadata.id) return res.metadata.id;
-    throw new Error(res.message||'create failed');
-  });
-}
-// PUT bin
-function _putBin(binId, data) {
-  return fetch(JB_BASE+'/'+binId,{method:'PUT',headers:JB_HDR,body:JSON.stringify(data)})
-    .then(r=>r.json());
-}
-// GET bin
-function _getBin(binId) {
-  return fetch(JB_BASE+'/'+binId+'/latest',{headers:{'X-Master-Key':JB_KEY}})
-    .then(r=>r.json()).then(res=>res.record);
-}
-
-// ── Cập nhật master bin (lưu map bins) ───────────────────
-function _updateMaster(bins) {
-  const masterId = getMasterId();
-  if(!masterId) return Promise.resolve();
-  saveMasterBins(bins);
-  return _putBin(masterId, jbMasterData(bins)).catch(()=>{});
-}
-
-// ── Lưu năm hiện tại lên cloud ───────────────────────────
-let _jbPending = false;
-function jbPushAll() {
-  const masterId = getMasterId();
-  if(!masterId) return; // chưa kết nối
+// ══ PUSH LÊN CLOUD ════════════════════════════════════════
+let _fbPushing = false;
+function fbPushAll() {
+  if (!fbReady()) return;
+  if (_fbPushing) { save._t = setTimeout(fbPushAll, 3000); return; }
   const yr = activeYear || new Date().getFullYear();
-  const bins = getMasterBins();
-  const yearBinId = bins[String(yr)];
-  const data = jbYearData(yr);
-  const kb = Math.round(JSON.stringify(data).length/1024*10)/10;
-
-  if(!yearBinId) {
-    // Chưa có bin cho năm này → tạo mới + cập nhật master
-    if(_jbPending) return;
-    _jbPending = true;
-    showSyncBanner('⏳ Tạo bin năm '+yr+'...');
-    _createBin('cpct_'+yr, data).then(newId=>{
-      bins[String(yr)] = newId;
-      _jbPending = false;
-      showSyncBanner('✅ Đã tạo bin '+yr+' ('+kb+'kb)', 2500);
+  const payload = fbYearPayload(yr);
+  const kb = Math.round(JSON.stringify(payload).length/1024*10)/10;
+  _fbPushing = true;
+  showSyncBanner('☁️ Đang lưu (~' + kb + 'kb)...');
+  fsSet(fbDocYear(yr), payload).then(res=>{
+    _fbPushing = false;
+    if (res.fields) {
+      showSyncBanner('✅ Đã lưu cloud (~' + kb + 'kb)', 2000);
       updateJbBtn();
-      return _updateMaster(bins);
-    }).then(()=>{ _jbPushCats(bins); })
-    .catch(e=>{ _jbPending=false; showSyncBanner('⚠️ Lỗi tạo bin: '+e.message,3000); });
-    return;
-  }
-
-  showSyncBanner('☁️ Đang lưu (~'+kb+'kb)...');
-  _putBin(yearBinId, data).then(res=>{
-    if(res.record){
-      showSyncBanner('✅ Đã lưu cloud (~'+kb+'kb)', 2000);
-      updateJbBtn();
-      _updateMaster(bins);
-      _jbPushCats(bins);
-    } else if(res.message&&res.message.includes('100kb')) {
-      showSyncBanner('⚠️ Vượt 100kb! Xóa bớt dữ liệu cũ hoặc nâng Pro',5000);
-    } else showSyncBanner('⚠️ Lỗi: '+(res.message||'?'),3000);
-  }).catch(()=>showSyncBanner('⚠️ Mất kết nối',3000));
+      // Push cats async
+      fsSet(fbDocCats(), fbCatsPayload()).catch(()=>{});
+    } else {
+      const err = res.error?.message || JSON.stringify(res.error) || '?';
+      if (err.includes('PERMISSION_DENIED'))
+        showSyncBanner('⚠️ Lỗi quyền truy cập — kiểm tra Security Rules', 5000);
+      else
+        showSyncBanner('⚠️ Lỗi lưu: ' + err.substring(0,60), 4000);
+    }
+  }).catch(()=>{ _fbPushing=false; showSyncBanner('⚠️ Mất kết nối internet', 3000); });
 }
 
-function _jbPushCats(bins) {
-  const b = bins || getMasterBins();
-  const catsBinId = b['cats'];
-  if(!catsBinId) return;
-  _putBin(catsBinId, jbCatsData()).catch(()=>{});
-}
+// ── Alias jbPushAll cho các nơi gọi cũ ───────────────────
+function jbPushAll() { fbPushAll(); }
 
-// ── Tạo toàn bộ (master + năm hiện tại + cats) ───────────
-function jbCreateBin(callback) {
+// ══ TẢI TỪ CLOUD ══════════════════════════════════════════
+function gsLoadAll(callback) {
+  if (!fbReady()) { callback(null); return; }
   const yr = activeYear || new Date().getFullYear();
-  const yearData = jbYearData(yr);
-  const catsData = jbCatsData();
-  const kb = Math.round(JSON.stringify(yearData).length/1024*10)/10;
-  showSyncBanner('⏳ Đang tạo kho dữ liệu ('+kb+'kb)...');
+  const ys = String(yr);
+  showSyncBanner('⏳ Đang tải năm ' + yr + '...');
 
   Promise.all([
-    _createBin('cpct_'+yr, yearData),
-    _createBin('cpct_cats', catsData),
-  ]).then(([yearId, catsId])=>{
-    const bins = { [String(yr)]: yearId, cats: catsId };
-    saveMasterBins(bins);
-    // Tạo master bin
-    return _createBin('cpct_master', jbMasterData(bins)).then(masterId=>{
-      localStorage.setItem(MASTER_KEY, masterId);
-      localStorage.removeItem(BIN_ID_KEY);
-      showSyncBanner('✅ Đã tạo xong! ('+kb+'kb)', 2500);
-      updateJbBtn();
-      callback(masterId);
-    });
-  }).catch(e=>{
-    showSyncBanner('⚠️ Lỗi: '+e.message, 3000);
-    callback(null);
-  });
-}
-
-// ── Tải dữ liệu từ cloud (master → năm → cats) ───────────
-function gsLoadAll(callback) {
-  const masterId = getMasterId();
-  if(!masterId) { callback(null); return; }
-  const yr = activeYear || new Date().getFullYear();
-  showSyncBanner('⏳ Đang tải năm '+yr+'...');
-
-  // Bước 1: đọc master để lấy map bins
-  _getBin(masterId).then(masterData=>{
-    if(!masterData) throw new Error('empty master');
-
-    // Detect: nếu masterData là bin cũ (không có type:'master') → backward compat
-    if(!masterData.type && masterData.v !== 3) {
-      // Legacy bin: xử lý trực tiếp
-      _loadLegacyData(masterData, callback);
-      return;
+    fsGet(fbDocYear(yr)),
+    fsGet(fbDocCats())
+  ]).then(([yearDoc, catsDoc]) => {
+    // Apply year data
+    const yearData = fsUnwrap(yearDoc);
+    if (yearData) {
+      const mergeArr = (key, expanded) => {
+        const existing = load(key,[]).filter(x=>{
+          const d = x.ngay||x.fromDate||'';
+          return !d.startsWith(ys);
+        });
+        localStorage.setItem(key, JSON.stringify([...expanded,...existing]));
+      };
+      if(yearData.i) mergeArr('inv_v3', expandInv(yearData.i));
+      if(yearData.u) mergeArr('ung_v1', expandUng(yearData.u));
+      if(yearData.c) { const ex=load('cc_v2',[]).filter(x=>!x.fromDate||!x.fromDate.startsWith(ys));
+        localStorage.setItem('cc_v2', JSON.stringify([...expandCC(yearData.c),...ex])); }
+      if(yearData.t) { const ex=load('tb_v1',[]).filter(x=>!x.ngay||!x.ngay.startsWith(ys));
+        localStorage.setItem('tb_v1', JSON.stringify([...expandTb(yearData.t),...ex])); }
     }
+    // Apply cats
+    const catsData = fsUnwrap(catsDoc);
+    if (catsData && catsData.cats) {
+      const ct = catsData.cats;
+      if(ct.ct)    localStorage.setItem('cat_ct',   JSON.stringify(ct.ct));
+      if(ct.loai)  localStorage.setItem('cat_loai', JSON.stringify(ct.loai));
+      if(ct.ncc)   localStorage.setItem('cat_ncc',  JSON.stringify(ct.ncc));
+      if(ct.nguoi) localStorage.setItem('cat_nguoi',JSON.stringify(ct.nguoi));
+    }
+    hideSyncBanner();
+    callback(yearData || catsData || {});
 
-    // Format mới: đọc bins map
-    const bins = masterData.bins || {};
-    saveMasterBins(bins);
-
-    const promises = [];
-    // Load năm hiện tại
-    const yearBinId = bins[String(yr)];
-    if(yearBinId) promises.push(_getBin(yearBinId).then(d=>({type:'year', data:d, yr})));
-    else promises.push(Promise.resolve({type:'year', data:null, yr}));
-
-    // Load cats (từ master data trực tiếp nếu có, hoặc bin riêng)
-    const catsBinId = bins['cats'];
-    if(catsBinId) promises.push(_getBin(catsBinId).then(d=>({type:'cats', data:d})));
-
-    return Promise.all(promises).then(results=>{
-      results.forEach(r=>{
-        if(r.type==='year' && r.data) _applyYearData(r.data, r.yr);
-        if(r.type==='cats' && r.data && r.data.cats) _applyCats(r.data.cats);
-      });
-      hideSyncBanner(); callback(masterData);
-
-      // Nếu không có bin năm này → push để tạo mới
-      if(!yearBinId) setTimeout(()=>jbPushAll(), 1000);
-    });
-  }).catch(e=>{
+    // Nếu năm này chưa có trên cloud → push ngay
+    if (!yearData) setTimeout(()=>fbPushAll(), 1500);
+  }).catch(e => {
     hideSyncBanner();
     console.warn('gsLoadAll error:', e);
     callback(null);
   });
 }
 
-function _applyYearData(data, yr) {
-  if(!data) return;
-  const ys = String(data.yr||yr);
-  const mergeArr = (key, expanded) => {
-    const existing = load(key,[]).filter(x=>{
-      const d = x.ngay||x.fromDate||'';
-      return !d.startsWith(ys);
-    });
-    localStorage.setItem(key, JSON.stringify([...expanded,...existing]));
-  };
-  if(data.i) mergeArr('inv_v3', expandInv(data.i));
-  if(data.u) mergeArr('ung_v1', expandUng(data.u));
-  if(data.c) { const ex=load('cc_v2',[]).filter(x=>!x.fromDate||!x.fromDate.startsWith(ys));
-    localStorage.setItem('cc_v2', JSON.stringify([...expandCC(data.c),...ex])); }
-  if(data.t) { const ex=load('tb_v1',[]).filter(x=>!x.ngay||!x.ngay.startsWith(ys));
-    localStorage.setItem('tb_v1', JSON.stringify([...expandTb(data.t),...ex])); }
-  // Backward: format v2 không nén
-  if(data.inv_v3) localStorage.setItem('inv_v3', JSON.stringify(data.inv_v3));
-  if(data.ung_v1) localStorage.setItem('ung_v1', JSON.stringify(data.ung_v1));
-  if(data.cc_v2)  localStorage.setItem('cc_v2',  JSON.stringify(data.cc_v2));
-  if(data.tb_v1)  localStorage.setItem('tb_v1',  JSON.stringify(data.tb_v1));
-}
-
-function _applyCats(ct) {
-  if(ct.ct||ct.congTrinh)    localStorage.setItem('cat_ct',   JSON.stringify(ct.ct||ct.congTrinh));
-  if(ct.loai||ct.loaiChiPhi) localStorage.setItem('cat_loai', JSON.stringify(ct.loai||ct.loaiChiPhi));
-  if(ct.ncc||ct.nhaCungCap)  localStorage.setItem('cat_ncc',  JSON.stringify(ct.ncc||ct.nhaCungCap));
-  if(ct.nguoi||ct.nguoiTH)   localStorage.setItem('cat_nguoi',JSON.stringify(ct.nguoi||ct.nguoiTH));
-}
-
-function _loadLegacyData(data, callback) {
-  // Bin cũ format v1/v2 — đọc trực tiếp + migrate
-  const yr = activeYear || new Date().getFullYear();
-  if(data.v===2) {
-    _applyYearData(data, yr);
-  } else {
-    if(data.inv_v3) localStorage.setItem('inv_v3', JSON.stringify(data.inv_v3));
-    if(data.ung_v1) localStorage.setItem('ung_v1', JSON.stringify(data.ung_v1));
-    if(data.cc_v2)  localStorage.setItem('cc_v2',  JSON.stringify(data.cc_v2));
-    if(data.tb_v1)  localStorage.setItem('tb_v1',  JSON.stringify(data.tb_v1));
-  }
-  if(data.cats) _applyCats(data.cats);
-  hideSyncBanner(); callback(data);
-  // Migrate: tạo cấu trúc master mới tự động sau 3s
-  setTimeout(()=>{
-    showSyncBanner('⏳ Đang nâng cấp cấu trúc cloud...');
-    jbCreateBin(newMasterId=>{
-      if(newMasterId) {
-        localStorage.setItem(MASTER_KEY, newMasterId);
-        localStorage.removeItem(BIN_ID_KEY);
-        showSyncBanner('✅ Đã nâng cấp xong!', 3000);
-      }
-    });
-  }, 3000);
-}
-// ── Cập nhật nút Cloud ────────────────────────────────────
+// ══ CẬP NHẬT NÚT CLOUD ════════════════════════════════════
 function updateJbBtn() {
   const btn = document.getElementById('jb-btn');
   if (!btn) return;
-  const binId = getMasterId();
-  if (binId) {
+  if (fbReady()) {
     btn.textContent = '✅ Cloud';
     btn.style.background = 'rgba(26,122,69,0.4)';
     btn.style.borderColor = 'rgba(26,200,100,0.5)';
@@ -1304,142 +1209,119 @@ function updateJbBtn() {
   }
 }
 
-// ── Modal quản lý Bin ID ──────────────────────────────────
-function openBinModal() {
-  const binId = localStorage.getItem(BIN_ID_KEY) || '';
-  document.getElementById('bin-modal-overlay').style.display = 'flex';
-  renderBinModal(binId);
+// ══ MODAL CẤU HÌNH ════════════════════════════════════════
+function openBinModal() { renderBinModal(); }
+function closeBinModal() {
+  const ov = document.getElementById('bin-modal-overlay');
+  if(ov) ov.style.display='none';
 }
 
-function renderBinModal(binId) {
-  const masterId = getMasterId();
-  const bins = getMasterBins();
+function renderBinModal() {
   const yr = activeYear || new Date().getFullYear();
-  const ov = document.getElementById('ct-modal');
-  const yearKb = estimateYearKb(yr);
-  const isConnected = !!masterId;
+  const ov = document.getElementById('bin-modal-overlay') || _createModalOverlay();
+  const isConnected = fbReady();
+  const yearKb = isConnected ? estimateYearKb(yr) : 0;
 
-  // Danh sách bins theo năm
-  const yearBinsHtml = Object.entries(bins)
-    .filter(([k])=>k!=='cats')
-    .sort(([a],[b])=>b-a)
-    .map(([y,bid])=>`
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:11px">
-        <span style="color:#888">Năm ${y}</span>
-        <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#555;overflow:hidden;text-overflow:ellipsis;max-width:200px">${bid}</span>
-      </div>`).join('') || '<div style="font-size:11px;color:#aaa;padding:4px 0">Chưa có bin năm nào</div>';
+  const statusColor = yearKb < 200 ? '#1a7a45' : yearKb < 500 ? '#e67e00' : '#c0392b';
+  const statusBg    = yearKb < 200 ? '#d4edda'  : yearKb < 500 ? '#fff3cd' : '#f8d7da';
+  const statusLabel = yearKb < 200 ? '✅ OK'    : yearKb < 500 ? '⚠️ Khá lớn' : '🔴 Lớn';
 
-  const html = `<div style="max-width:460px;width:95vw;background:#fff;border-radius:16px;padding:24px;font-family:'IBM Plex Sans',sans-serif;box-shadow:0 12px 48px rgba(0,0,0,.18)">
+  ov.innerHTML = `<div onclick="event.stopPropagation()" style="max-width:460px;width:95vw;background:#fff;border-radius:16px;padding:24px;font-family:'IBM Plex Sans',sans-serif;box-shadow:0 12px 48px rgba(0,0,0,.18)">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <h3 style="font-size:17px;font-weight:800;margin:0">☁️ Kết Nối Cloud JSONBin</h3>
-      <button onclick="document.getElementById('ct-modal').style.display='none'" style="background:none;border:none;font-size:22px;cursor:pointer;color:#888;line-height:1">✕</button>
+      <h3 style="font-size:17px;font-weight:800;margin:0">🔥 Kết Nối Firebase</h3>
+      <button onclick="closeBinModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#888;line-height:1">✕</button>
     </div>
 
     ${isConnected ? `
-    <div style="background:#f0fff4;border:1px solid #b2dfdb;border-radius:8px;padding:10px 14px;margin-bottom:14px">
-      <div style="font-size:11px;font-weight:700;color:#1a7a45;margin-bottom:4px">✅ ĐÃ KẾT NỐI — MASTER BIN ID</div>
-      <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;word-break:break-all;color:#333;margin-bottom:8px">${masterId}</div>
-      <div style="font-size:11px;color:#555;border-top:1px solid #c8e6c9;padding-top:8px;margin-top:4px">
-        <div style="font-weight:700;margin-bottom:4px">Các bin dữ liệu (tự động quản lý):</div>
-        ${yearBinsHtml}
-      </div>
+    <div style="background:#f0fff4;border:1px solid #b2dfdb;border-radius:8px;padding:10px 14px;margin-bottom:12px">
+      <div style="font-size:11px;font-weight:700;color:#1a7a45;margin-bottom:4px">✅ ĐÃ KẾT NỐI</div>
+      <div style="font-size:11px;color:#555">Project: <strong>${FB_CONFIG.projectId}</strong></div>
+      <div style="font-size:11px;color:#888;margin-top:2px">API Key: ${FB_CONFIG.apiKey.substring(0,8)}••••••••</div>
     </div>
     <div style="background:#f5f4f0;border-radius:8px;padding:8px 12px;margin-bottom:14px;font-size:12px">
-      📊 Dữ liệu năm ${yr}: <strong style="color:${yearKb<70?'#1a7a45':yearKb<90?'#e67e00':'#c0392b'}">${yearKb}kb</strong> / 100kb
-      <span style="margin-left:6px;background:${yearKb<70?'#d4edda':yearKb<90?'#fff3cd':'#f8d7da'};color:${yearKb<70?'#155724':yearKb<90?'#856404':'#721c24'};border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700">
-        ${yearKb<70?'✅ OK':yearKb<90?'⚠️ Gần đầy':'🔴 Cần xử lý'}</span>
+      📊 Dữ liệu năm ${yr}: <strong style="color:${statusColor}">${yearKb}kb</strong>
+      <span style="margin-left:6px;background:${statusBg};color:${statusColor};border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700">${statusLabel}</span>
+      <div style="font-size:10px;color:#aaa;margin-top:2px">Firebase free: 1GB storage · 50K reads/ngày · 20K writes/ngày</div>
     </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-      <button onclick="syncNow()" style="flex:1;min-width:100px;padding:10px;border-radius:8px;border:1.5px solid #1565c0;background:transparent;color:#1565c0;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🔄 Tải Về</button>
-      <button onclick="jbDisconnect()" style="flex:1;min-width:100px;padding:10px;border-radius:8px;border:1.5px solid #c0392b;background:transparent;color:#c0392b;font-family:inherit;font-size:13px;cursor:pointer">⛔ Ngắt Kết Nối</button>
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <button onclick="syncNow()" style="flex:1;padding:10px;border-radius:8px;border:1.5px solid #1565c0;background:transparent;color:#1565c0;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">🔄 Tải Về</button>
+      <button onclick="fbDisconnect()" style="flex:1;padding:10px;border-radius:8px;border:1.5px solid #c0392b;background:transparent;color:#c0392b;font-family:inherit;font-size:13px;cursor:pointer">⛔ Ngắt</button>
     </div>
     ` : `
-    <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:#856404">
-      ℹ️ Chưa kết nối cloud. Nhập <strong>Master Bin ID</strong> nếu đã có, hoặc tạo mới.
+    <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:12px;margin-bottom:14px;font-size:13px;color:#856404">
+      Nhập <strong>Project ID</strong> và <strong>Web API Key</strong> từ Firebase Console để kết nối.
     </div>
     `}
 
     <div style="margin-bottom:10px">
-      <label style="font-size:11px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px">
-        ${isConnected?'Đổi Master Bin ID':'Nhập Master Bin ID'}
-      </label>
-      <div style="display:flex;gap:6px">
-        <input id="jb-id-input" type="text" value="${masterId}" placeholder="Nhập Master Bin ID..."
-          style="flex:1;padding:8px 10px;border:1.5px solid #ddd;border-radius:8px;font-family:'IBM Plex Mono',monospace;font-size:12px;outline:none">
-        <button onclick="jbSaveId()" style="padding:8px 14px;border-radius:8px;border:none;background:#1a1814;color:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">💾 Lưu</button>
-      </div>
+      <label style="font-size:11px;font-weight:700;color:#555;display:block;margin-bottom:4px">PROJECT ID</label>
+      <input id="fb-proj-input" type="text" value="${FB_CONFIG.projectId}"
+        placeholder="your-project-id"
+        style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #ddd;border-radius:8px;font-family:'IBM Plex Mono',monospace;font-size:12px;outline:none">
     </div>
-
-    ${!isConnected?`
-    <button onclick="jbCreateBin(id=>{if(id)renderBinModal(id)})"
-      style="width:100%;padding:12px;border-radius:8px;border:none;background:#1a7a45;color:#fff;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:10px">
-      ✨ Tạo Kho Dữ Liệu Mới (Tự Động)
-    </button>`:''}
-
-    <div style="font-size:11px;color:#aaa;text-align:center;line-height:1.5">
-      Chỉ cần 1 Master ID duy nhất · App tự tạo bin cho mỗi năm · Mỗi bin ≤ 100kb
+    <div style="margin-bottom:14px">
+      <label style="font-size:11px;font-weight:700;color:#555;display:block;margin-bottom:4px">WEB API KEY</label>
+      <input id="fb-key-input" type="text" value="${FB_CONFIG.apiKey}"
+        placeholder="AIzaSy..."
+        style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #ddd;border-radius:8px;font-family:'IBM Plex Mono',monospace;font-size:12px;outline:none">
+    </div>
+    <button onclick="fbSaveConfig()" style="width:100%;padding:12px;border-radius:8px;border:none;background:#1a1814;color:#fff;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:10px">
+      💾 ${isConnected ? 'Cập Nhật Kết Nối' : 'Kết Nối Firebase'}
+    </button>
+    <div style="font-size:11px;color:#aaa;text-align:center;line-height:1.6">
+      Firebase free tier: 1GB · Không giới hạn size/file · Google hỗ trợ lâu dài
     </div>
   </div>`;
-
-  ov.innerHTML = html;
   ov.style.display = 'flex';
 }
 
-function jbSaveId() {
-  const val = (document.getElementById('jb-id-input')?.value||'').trim();
-  if (!val || val.length < 10) { toast('Vui lòng nhập Master Bin ID hợp lệ!', 'error'); return; }
-  localStorage.setItem(MASTER_KEY, val);
-  localStorage.removeItem(BIN_ID_KEY);
-  _masterBins = null; // reset cache
-  document.getElementById('ct-modal').style.display='none';
-  toast('✅ Đã lưu Master Bin ID! Đang tải dữ liệu...', 'success');
-  updateJbBtn(); reloadFromCloud();
+function _createModalOverlay() {
+  let ov = document.getElementById('bin-modal-overlay');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'bin-modal-overlay';
+    ov.onclick = function(e) { if(e.target===this) closeBinModal(); };
+    ov.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center';
+    document.body.appendChild(ov);
+  }
+  return ov;
 }
 
-function jbDisconnect() {
-  if(!confirm('Ngắt kết nối cloud? Dữ liệu local vẫn còn.')) return;
-  localStorage.removeItem(MASTER_KEY);
-  localStorage.removeItem(BIN_ID_KEY);
-  localStorage.removeItem('jb_bins_cache');
-  _masterBins = null;
-  document.getElementById('ct-modal').style.display='none';
-  updateJbBtn(); toast('Đã ngắt kết nối cloud');
-}
-
-function closeBinModal() {
-  document.getElementById('bin-modal-overlay').style.display = 'none';
-}
-
-function copyBinId() {
-  const id = getMasterId();
-  if(!id) return;
-  navigator.clipboard.writeText(id)
-    .then(()=>toast('✅ Đã copy Master Bin ID!','success'))
-    .catch(()=>{ prompt('Copy Master Bin ID:', id); });
-}
-
-function createNewBin() {
-  jbCreateBin(function(id) {
-    if (id) {
-      renderBinModal(id);
-      reloadFromCloud();
-    }
-  });
-}
-
-function linkBinId() { jbSaveId(); }
-
-function resetBin() { jbDisconnect(); }
-
-function syncNow() {
+function fbSaveConfig() {
+  const proj = (document.getElementById('fb-proj-input')?.value||'').trim();
+  const key  = (document.getElementById('fb-key-input')?.value||'').trim();
+  if (!proj || !key) { toast('Vui lòng nhập đủ Project ID và API Key!', 'error'); return; }
+  FB_CONFIG.projectId = proj;
+  FB_CONFIG.apiKey    = key;
+  _saveLS(FB_CFG_KEY, { projectId: proj, apiKey: key });
   closeBinModal();
+  toast('✅ Đã lưu cấu hình Firebase! Đang tải dữ liệu...', 'success');
+  updateJbBtn();
   reloadFromCloud();
 }
+
+function fbDisconnect() {
+  if (!confirm('Ngắt kết nối Firebase? Dữ liệu local vẫn còn.')) return;
+  FB_CONFIG.projectId = '';
+  FB_CONFIG.apiKey    = '';
+  localStorage.removeItem(FB_CFG_KEY);
+  closeBinModal();
+  updateJbBtn();
+  toast('Đã ngắt kết nối Firebase');
+}
+
+// Alias các hàm cũ để không break code khác
+function jbSaveId()     { fbSaveConfig(); }
+function jbDisconnect() { fbDisconnect(); }
+function copyBinId()    { navigator.clipboard.writeText(FB_CONFIG.projectId).then(()=>toast('✅ Đã copy Project ID')).catch(()=>{}); }
+function linkBinId()    { fbSaveConfig(); }
+function resetBin()     { fbDisconnect(); }
+function createNewBin() { openBinModal(); }
 
 function reloadFromCloud() {
   showSyncBanner('⏳ Đang tải dữ liệu...');
   gsLoadAll(function(data) {
-    if (!data) { toast('⚠️ Không tải được dữ liệu từ cloud', 'error'); return; }
+    if (!data) { hideSyncBanner(); toast('⚠️ Không tải được dữ liệu từ cloud', 'error'); return; }
     invoices   = load('inv_v3', []);
     ungRecords = load('ung_v1', []);
     ccData     = load('cc_v2', []);
@@ -1448,17 +1330,45 @@ function reloadFromCloud() {
     cats.loaiChiPhi = load('cat_loai',  DEFAULTS.loaiChiPhi);
     cats.nhaCungCap = load('cat_ncc',   DEFAULTS.nhaCungCap);
     cats.nguoiTH    = load('cat_nguoi', DEFAULTS.nguoiTH);
-    buildYearSelect(); // Hiện đủ các năm sau khi tải cloud
-    buildYearSelect(); // Cập nhật năm sau khi tải xong
-    cats.thauPhu    = load('cat_tp',    []);
-    cats.congNhan   = load('cat_cn',    []);
-    // Tự động tạo hóa đơn từ toàn bộ chấm công
-    const built = rebuildInvoicesFromCC();
-    updateTop(); rebuildEntrySelects(); rebuildCCNameList(); populateCCCtSel();
-    initTable(5); initUngTable(8); initCC();
-    toast(`✅ Đồng bộ xong! ${built.weeks} HĐ nhân công, ${built.cts} CT mới, ${built.names} CN mới`, 'success');
+    buildYearSelect();
+    rebuildEntrySelects(); rebuildUngSelects();
+    buildFilters(); filterAndRender(); renderTrash();
+    renderCCHistory(); renderCCTLT();
+    buildUngFilters(); filterAndRenderUng();
+    renderCtPage(); updateTop(); renderSettings();
+    toast('✅ Đã tải dữ liệu từ Firebase!', 'success');
   });
 }
+
+function syncNow() {
+  closeBinModal();
+  reloadFromCloud();
+}
+
+function buildYearSelect() {
+  const years = new Set();
+  years.add(new Date().getFullYear());
+  invoices.forEach(i=>{ if(i.ngay) years.add(parseInt(i.ngay.split('-')[0])); });
+  ungRecords.forEach(u=>{ if(u.ngay) years.add(parseInt(u.ngay.split('-')[0])); });
+  ccData.forEach(w=>{ if(w.fromDate) years.add(parseInt(w.fromDate.split('-')[0])); });
+  const sorted=[...years].sort((a,b)=>b-a);
+  const sel=document.getElementById('global-year');
+  if(!sel) return;
+  sel.innerHTML=sorted.map(y=>`<option value="${y}" ${y===activeYear?'selected':''}>${y}</option>`).join('');
+}
+
+function saveCats(catId) {
+  const cfg = CATS.find(c=>c.id===catId);
+  if (cfg) {
+    localStorage.setItem(cfg.sk, JSON.stringify(cats[catId]));
+    clearTimeout(save._t);
+    save._t = setTimeout(()=>{
+      if (!fbReady()) return;
+      fsSet(fbDocCats(), fbCatsPayload()).catch(()=>{});
+    }, 1500);
+  }
+}
+
 
 function showSyncBanner(msg, autohideMs=0) {
   let b = document.getElementById('sync-banner');
@@ -2075,14 +1985,6 @@ function delItem(catId,idx) {
   cats[catId].splice(idx,1); saveCats(catId);
   renderSettings(); rebuildEntrySelects(); rebuildUngSelects();
   toast(`Đã xóa "${item}"`);
-}
-function saveCats(catId) {
-  const cfg=CATS.find(c=>c.id===catId);
-  if(cfg) {
-    localStorage.setItem(cfg.sk, JSON.stringify(cats[catId]));
-    clearTimeout(save._t);
-    save._t = setTimeout(jbPushAll, 2000);
-  }
 }
 
 function rebuildEntrySelects() {
@@ -3165,20 +3067,6 @@ function exportCCHistCSV(){
 // ══════════════════════════════════════════════════════════════════
 let activeYear = new Date().getFullYear();
 
-function buildYearSelect() {
-  const years = new Set();
-  years.add(new Date().getFullYear());
-  invoices.forEach(i=>{ if(i.ngay) years.add(parseInt(i.ngay.split('-')[0])); });
-  ungRecords.forEach(u=>{ if(u.ngay) years.add(parseInt(u.ngay.split('-')[0])); });
-  ccData.forEach(w=>{ if(w.fromDate) years.add(parseInt(w.fromDate.split('-')[0])); });
-  // Thêm các năm từ bins cache (dù chưa có data local)
-  const bins = getMasterBins();
-  Object.keys(bins).forEach(k=>{ const y=parseInt(k); if(!isNaN(y)) years.add(y); });
-  const sorted=[...years].sort((a,b)=>b-a);
-  const sel=document.getElementById('global-year');
-  if(!sel) return;
-  sel.innerHTML=sorted.map(y=>`<option value="${y}" ${y===activeYear?'selected':''}>${y}</option>`).join('');
-}
 
 function onYearChange() {
   const sel=document.getElementById('global-year');
