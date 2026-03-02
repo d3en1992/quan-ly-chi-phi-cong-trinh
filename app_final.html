@@ -327,8 +327,7 @@ select.cell-input {
   /* Ẩn cột Người TH, NCC */
   #all-table thead tr th:nth-child(4),
   #all-table thead tr th:nth-child(5),
-  #all-tbody tr td:nth-child(4),
-  #all-tbody tr td:nth-child(5) { display: none; }
+  /* hide-mobile class handles this now */
   /* Cột ngày */
   #all-tbody tr td:nth-child(1) { font-size: 10px; padding: 7px 6px; white-space: nowrap; }
   /* Cột công trình */
@@ -347,7 +346,11 @@ select.cell-input {
   #all-tbody tr td:last-child { padding: 4px; white-space: nowrap; }
   #all-tbody tr td:last-child .btn-sm { padding: 4px 6px; font-size: 10px; }
 
-  /* ════════════════════════════════════
+  /* Tất Cả CP: ẩn cột Người TH + Nhà CC trên mobile */
+  #all-table thead th.hide-mobile,
+  #all-tbody tr td.hide-mobile { display: none !important; }
+
+    /* ════════════════════════════════════
      CT PAGE
   ════════════════════════════════════ */
   .ct-summary-grid { grid-template-columns: 1fr; gap: 10px; }
@@ -553,7 +556,7 @@ select.cell-input {
     <!-- Bảng HĐ đã nhập trong ngày -->
     <div style="margin-top:20px" id="today-invoices-wrap">
       <div class="section-header">
-        <div class="section-title" style="font-size:14px"><span class="dot"></span>Hóa Đơn Đã Nhập Hôm Nay <span id="today-inv-date" style="color:var(--gold);font-size:13px"></span></div>
+        <div class="section-title" style="font-size:14px"><span class="dot"></span>Hóa Đơn Đã Nhập Trong Ngày <span id="today-inv-date" style="color:var(--gold);font-size:13px"></span></div>
         <button class="btn btn-outline btn-sm" onclick="renderTodayInvoices()">↻ Làm mới</button>
       </div>
       <div class="records-wrap">
@@ -688,11 +691,11 @@ select.cell-input {
         <select class="filter-sel" id="f-month" onchange="filterAndRender()"><option value="">Tất cả tháng</option></select>
       </div>
       <div style="overflow-x:auto">
-        <table class="records-table">
+        <table class="records-table" id="all-table">
           <thead>
             <tr>
               <th>Ngày</th><th>Công Trình</th><th>Loại Chi Phí</th>
-              <th>Người TH</th><th>Nhà Cung Cấp</th><th>Nội Dung</th>
+              <th class="hide-mobile">Người TH</th><th class="hide-mobile">Nhà Cung Cấp</th><th>Nội Dung</th>
               <th style="text-align:right">Số Tiền</th>
               <th></th>
             </tr>
@@ -1445,12 +1448,14 @@ function reloadFromCloud() {
     cats.loaiChiPhi = load('cat_loai',  DEFAULTS.loaiChiPhi);
     cats.nhaCungCap = load('cat_ncc',   DEFAULTS.nhaCungCap);
     cats.nguoiTH    = load('cat_nguoi', DEFAULTS.nguoiTH);
+    buildYearSelect(); // Hiện đủ các năm sau khi tải cloud
+    buildYearSelect(); // Cập nhật năm sau khi tải xong
     cats.thauPhu    = load('cat_tp',    []);
     cats.congNhan   = load('cat_cn',    []);
     // Tự động tạo hóa đơn từ toàn bộ chấm công
     const built = rebuildInvoicesFromCC();
     updateTop(); rebuildEntrySelects(); rebuildCCNameList(); populateCCCtSel();
-    initTable(10); initUngTable(8); initCC();
+    initTable(5); initUngTable(8); initCC();
     toast(`✅ Đồng bộ xong! ${built.weeks} HĐ nhân công, ${built.cts} CT mới, ${built.names} CN mới`, 'success');
   });
 }
@@ -1493,7 +1498,7 @@ function init() {
   document.getElementById('ung-date').value = today();
 
   // Hiển thị dữ liệu local ngay lập tức
-  initTable(10);
+  initTable(5);
   initUngTable(8);
   initCC();
   updateTop();
@@ -1516,7 +1521,7 @@ function init() {
     cats.nguoiTH    = load('cat_nguoi', DEFAULTS.nguoiTH);
     buildYearSelect(); updateTop();
     rebuildEntrySelects(); rebuildCCNameList(); populateCCCtSel();
-    initTable(10); initUngTable(8); initCC();
+    initTable(5); initUngTable(8); initCC();
     const built2 = rebuildInvoicesFromCC();
     updateTop();
     toast(`✅ Đồng bộ xong! ${built2.weeks} HĐ nhân công, ${built2.cts} CT mới`, 'success');
@@ -1659,7 +1664,7 @@ function calcSummary() {
 
 function clearTable() {
   if(!confirm('Xóa toàn bộ bảng nhập hiện tại?')) return;
-  initTable(10);
+  initTable(5);
 }
 
 function saveAllRows() {
@@ -1688,11 +1693,27 @@ function saveAllRows() {
       const idx = invoices.findIndex(i=>String(i.id)===String(editId));
       if(idx>=0) { invoices[idx]={...invoices[idx],...payload, _ts: Date.now()}; updated++; }
     } else {
+      // Kiểm tra trùng: cùng ngày + CT + Loại + Số tiền + Nội dung → skip
+      const isDup = invoices.some(i =>
+        i.ngay===payload.ngay && i.congtrinh===payload.congtrinh &&
+        i.loai===payload.loai && (i.thanhtien||i.tien||0)===(payload.thanhtien||0) &&
+        (i.nd||'')===(payload.nd||'') && !tr.dataset.forceSave
+      );
+      if(isDup) {
+        tr.style.background='#fff3cd';
+        tr.title='⚠️ Hóa đơn trùng — đã bỏ qua';
+        return; // skip duplicate
+      }
       invoices.unshift({id: Date.now()+Math.random(), _ts: Date.now(), ...payload});
       saved++;
     }
   });
   if(errRow>0) { toast(`${errRow} dòng thiếu Công Trình hoặc Loại CP!`,'error'); return; }
+  const dupRows = document.querySelectorAll('#entry-tbody tr[title*="trùng"]').length;
+  if(saved+updated===0 && dupRows>0) {
+    toast(`⚠️ ${dupRows} hóa đơn trùng lặp — không lưu! Nếu muốn lưu hãy sửa nội dung.`,'error');
+    return;
+  }
   if(saved+updated===0) { toast('Không có dòng hợp lệ!','error'); return; }
   save('inv_v3', invoices);
   buildYearSelect(); updateTop();
@@ -1973,13 +1994,16 @@ function renderSettings() {
 }
 
 function renderItem(catId,item,idx) {
-  return `<div class="settings-item" id="si-${catId}-${idx}">
+  const inUse = isItemInUse(catId, item);
+  return `<div class="settings-item" id="si-${catId}-${idx}" style="${inUse?'background:rgba(26,122,69,0.04)':''}">
     <span class="s-name" id="sn-${catId}-${idx}" ondblclick="startEdit('${catId}',${idx})">${x(item)}</span>
+    ${inUse?`<span title="Đang được sử dụng" style="font-size:10px;color:#1a7a45;padding:2px 5px;background:rgba(26,122,69,0.1);border-radius:3px;margin-right:2px">✓ đang dùng</span>`:''}
     <input class="s-edit-input" id="se-${catId}-${idx}" value="${x(item)}"
       onblur="finishEdit('${catId}',${idx})"
       onkeydown="if(event.key==='Enter')finishEdit('${catId}',${idx});if(event.key==='Escape')cancelEdit('${catId}',${idx})">
     <button class="btn btn-outline btn-sm btn-icon" onclick="startEdit('${catId}',${idx})" title="Sửa tên">✏️</button>
-    <button class="btn btn-danger btn-sm btn-icon" onclick="delItem('${catId}',${idx})" title="Xóa">✕</button>
+    <button class="btn ${inUse?'btn-outline':'btn-danger'} btn-sm btn-icon" onclick="delItem('${catId}',${idx})"
+      title="${inUse?'Đang được sử dụng — không thể xóa':'Xóa'}" ${inUse?'style="opacity:0.4;cursor:not-allowed"':''}>✕</button>
   </div>`;
 }
 
@@ -2020,9 +2044,34 @@ function addItem(catId) {
   renderSettings(); rebuildEntrySelects(); rebuildUngSelects();
   toast(`✅ Đã thêm "${val}"`,'success');
 }
+function isItemInUse(catId, item) {
+  const cfg = CATS.find(c=>c.id===catId);
+  if(!cfg || !cfg.refField) {
+    // congNhan — kiểm tra trong ccData
+    if(catId==='congNhan') return ccData.some(w=>w.workers&&w.workers.some(wk=>wk.name===item));
+    return false;
+  }
+  // Kiểm tra trong invoices
+  if(invoices.some(i=>(i[cfg.refField]||'')=== item)) return true;
+  // Kiểm tra trong ungRecords (tp field)
+  if(catId==='thauPhu'||catId==='nhaCungCap') {
+    if(ungRecords.some(r=>(r.tp||'')=== item)) return true;
+  }
+  // Kiểm tra congTrinh trong cc + ung
+  if(catId==='congTrinh') {
+    if(ungRecords.some(r=>(r.congtrinh||'')=== item)) return true;
+    if(ccData.some(w=>(w.ct||'')=== item)) return true;
+  }
+  return false;
+}
+
 function delItem(catId,idx) {
   const item=cats[catId][idx];
-  if(!confirm(`Xóa "${item}"?\nHóa đơn đã lưu không bị ảnh hưởng.`)) return;
+  if(isItemInUse(catId, item)) {
+    toast(`⚠️ Không thể xóa "${item}" — đang được sử dụng trong dữ liệu!`, 'error');
+    return;
+  }
+  if(!confirm(`Xóa "${item}" khỏi danh mục?`)) return;
   cats[catId].splice(idx,1); saveCats(catId);
   renderSettings(); rebuildEntrySelects(); rebuildUngSelects();
   toast(`Đã xóa "${item}"`);
@@ -3122,6 +3171,9 @@ function buildYearSelect() {
   invoices.forEach(i=>{ if(i.ngay) years.add(parseInt(i.ngay.split('-')[0])); });
   ungRecords.forEach(u=>{ if(u.ngay) years.add(parseInt(u.ngay.split('-')[0])); });
   ccData.forEach(w=>{ if(w.fromDate) years.add(parseInt(w.fromDate.split('-')[0])); });
+  // Thêm các năm từ bins cache (dù chưa có data local)
+  const bins = getMasterBins();
+  Object.keys(bins).forEach(k=>{ const y=parseInt(k); if(!isNaN(y)) years.add(y); });
   const sorted=[...years].sort((a,b)=>b-a);
   const sel=document.getElementById('global-year');
   if(!sel) return;
@@ -3131,7 +3183,30 @@ function buildYearSelect() {
 function onYearChange() {
   const sel=document.getElementById('global-year');
   if(sel) activeYear=parseInt(sel.value);
-  // Refresh các tab hiện tại
+
+  // Kiểm tra xem có dữ liệu năm này trong local chưa
+  const ys=String(activeYear);
+  const hasLocal = invoices.some(i=>i.ngay&&i.ngay.startsWith(ys))
+    || ccData.some(w=>w.fromDate&&w.fromDate.startsWith(ys))
+    || ungRecords.some(u=>u.ngay&&u.ngay.startsWith(ys));
+
+  if(!hasLocal && getMasterId()) {
+    // Tải dữ liệu năm này từ cloud
+    showSyncBanner('⏳ Đang tải dữ liệu năm ' + activeYear + '...');
+    gsLoadAll(function(data) {
+      if(data) {
+        invoices   = load('inv_v3', []);
+        ungRecords = load('ung_v1', []);
+        ccData     = load('cc_v2', []);
+        _refreshAllTabs();
+      }
+    });
+    return;
+  }
+  _refreshAllTabs();
+}
+
+function _refreshAllTabs() {
   const activePage=document.querySelector('.page.active');
   if(!activePage) return;
   const pid=activePage.id.replace('page-','');
@@ -3139,6 +3214,7 @@ function onYearChange() {
   if(pid==='chamcong') { renderCCHistory(); renderCCTLT(); }
   if(pid==='nhapung') { buildUngFilters(); filterAndRenderUng(); }
   if(pid==='ct') renderCtPage();
+  if(pid==='nhap') renderTodayInvoices();
   updateTop();
 }
 
@@ -3283,9 +3359,13 @@ let _npLeft = null;
 
 function openNumpad(inputEl, label) {
   _npTarget = inputEl;
-  // cc-wage-input: lấy data-raw; np-num-input: lấy value; tien-input: lấy data-raw
+  // cc-day-input: lấy value (0, 0.5, 1)
+  // np-num-input: lấy value số thô
+  // cc-wage-input / tien-input: lấy data-raw
   let startVal;
-  if(inputEl.classList.contains('np-num-input')) {
+  if(inputEl.classList.contains('cc-day-input')) {
+    startVal = String(parseFloat(inputEl.value)||0);
+  } else if(inputEl.classList.contains('np-num-input')) {
     startVal = String(parseFloat(inputEl.value)||0);
   } else {
     startVal = String(inputEl.dataset.raw || inputEl.value || '0');
@@ -3318,6 +3398,29 @@ function _npCalcResult() {
 }
 
 function _npRefresh() {
+  // Cập nhật shortcuts: nếu là ô ngày công → hiện 0, 0.5, 1 thay vì +100K +200K...
+  const shortcutsEl = document.getElementById('numpad-shortcuts');
+  if(shortcutsEl && _npTarget) {
+    const isDay = _npTarget.classList.contains('cc-day-input');
+    if(isDay) {
+      shortcutsEl.innerHTML = `
+        <button class="np-shortcut" style="font-weight:700" onclick="_npSetDayVal(0)">= 0</button>
+        <button class="np-shortcut" style="color:#4cde80;font-weight:700" onclick="_npSetDayVal(0.5)">= ½</button>
+        <button class="np-shortcut" style="color:#4cde80;font-weight:700" onclick="_npSetDayVal(1)">= 1</button>
+        <button class="np-shortcut" style="color:#4cde80" onclick="_npSetDayVal(1.5)">= 1.5</button>
+        <button class="np-shortcut" style="color:#4cde80" onclick="_npSetDayVal(2)">= 2</button>`;
+    } else if(!shortcutsEl.querySelector('.orig-shortcuts')) {
+      // Restore original shortcuts if switched from day mode
+      shortcutsEl.innerHTML = `
+        <button class="np-shortcut orig-shortcuts" onclick="numpadShortcut(100000)">+100K</button>
+        <button class="np-shortcut orig-shortcuts" onclick="numpadShortcut(200000)">+200K</button>
+        <button class="np-shortcut orig-shortcuts" onclick="numpadShortcut(500000)">+500K</button>
+        <button class="np-shortcut orig-shortcuts" onclick="numpadShortcut(1000000)">+1Tr</button>
+        <button class="np-shortcut orig-shortcuts" onclick="numpadShortcut(2000000)">+2Tr</button>
+        <button class="np-shortcut orig-shortcuts" onclick="numpadShortcut(5000000)">+5Tr</button>
+        <button class="np-shortcut orig-shortcuts" onclick="numpadShortcut(10000000)">+10Tr</button>`;
+    }
+  }
   const txt = document.getElementById('numpad-text');
   if(!txt) return;
   const raw = parseInt(_npRaw)||0;
@@ -3356,6 +3459,12 @@ function numpadKey(k) {
   _npRefresh();
 }
 
+function _npSetDayVal(val) {
+  // Shortcut cho ô ngày công — đặt giá trị rồi tự đóng
+  _npRaw = String(val);
+  _npOp = null; _npLeft = null;
+  numpadDone();
+}
 function numpadShortcut(amount) {
   const cur = _npCalcResult();
   _npRaw = String(cur + amount);
@@ -3371,7 +3480,16 @@ function numpadDone() {
     const isCC = el.classList.contains('cc-wage-input');
     const isNum = el.classList.contains('np-num-input');
 
-    if(isCC) {
+    if(el.classList.contains('cc-day-input')) {
+      // CC ngày công: giá trị nhỏ (0, 0.5, 1, 2...)
+      const dayVal = Math.min(3, Math.max(0, val)); // clamp 0-3
+      el.value = dayVal || '';
+      el.classList.toggle('has-val', dayVal===1);
+      el.classList.toggle('half-val', dayVal>0 && dayVal<1);
+      el.dataset.raw = dayVal;
+      const tr2 = el.closest('tr');
+      if(tr2) try { onCCDayKey(el); calcCCRow(tr2); updateCCSumRow && updateCCSumRow(); } catch(e){}
+    } else if(isCC) {
       // CC wage: set data-raw trực tiếp rồi gọi hàm tính lại
       el.dataset.raw = val;
       el.value = val ? numFmt(val) : '';
@@ -3407,6 +3525,7 @@ function numpadDone() {
 function isNumpadTarget(el) {
   return el.classList.contains('tien-input') ||
          el.classList.contains('cc-wage-input') ||
+         el.classList.contains('cc-day-input') ||
          el.classList.contains('np-num-input');
 }
 
@@ -3416,6 +3535,12 @@ function buildNumpadLabel(el) {
   // CC wage fields
   const ccAttr = el.dataset.cc;
   if(ccAttr) {
+    if(ccAttr.startsWith('d')) {
+      const name = tr?.querySelector('[data-cc="name"]')?.value||'';
+      const days = ['CN','T2','T3','T4','T5','T6','T7'];
+      const idx = parseInt(ccAttr.slice(1));
+      return (days[idx]||ccAttr) + (name?' — '+name:'');
+    }
     const labels = {luong:'Lương/Ngày', phucap:'Phụ Cấp', hdml:'HĐ Mua Lẻ'};
     const name = tr?.querySelector('[data-cc="name"]')?.value||'';
     return (labels[ccAttr]||'Nhập số') + (name?' — '+name:'');
@@ -3788,7 +3913,7 @@ function tbExportCSV() {
     </div>
     <button id="numpad-save-btn" onclick="numpadDone()">Lưu</button>
     <div id="numpad-shortcuts">
-      <button class="np-shortcut" onclick="numpadShortcut(100000)">+100K</button>
+      <button class="np-shortcut orig-shortcuts" onclick="numpadShortcut(100000)">+100K</button>
       <button class="np-shortcut" onclick="numpadShortcut(200000)">+200K</button>
       <button class="np-shortcut" onclick="numpadShortcut(500000)">+500K</button>
       <button class="np-shortcut" onclick="numpadShortcut(1000000)">+1Tr</button>
@@ -3796,6 +3921,7 @@ function tbExportCSV() {
       <button class="np-shortcut" onclick="numpadShortcut(5000000)">+5Tr</button>
       <button class="np-shortcut" onclick="numpadShortcut(10000000)">+10Tr</button>
     </div>
+
     <div id="numpad-keys">
       <button class="np-key clear" onclick="numpadKey('C')">C</button>
       <button class="np-key op" onclick="numpadKey('÷')">÷</button>
