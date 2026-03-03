@@ -286,8 +286,10 @@ function _doSaveRows(rows) {
   else if(saved > 0 && updated === 0) toast(`✅ Đã lưu ${saved} hóa đơn!`, 'success');
   else toast(`✅ Đã lưu ${saved} mới, cập nhật ${updated} hóa đơn!`, 'success');
 
-  // Render bảng HĐ trong ngày
+  // Tự động refresh sub-tab "HĐ/CP nhập trong ngày"
   renderTodayInvoices();
+  // Tự động refresh sub-tab "Tất cả CP/HĐ" (luôn sync sau mỗi lần lưu)
+  buildFilters(); filterAndRender();
 }
 
 // ══════════════════════════════

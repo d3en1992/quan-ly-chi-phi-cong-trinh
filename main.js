@@ -87,14 +87,33 @@ function goPage(btn, id) {
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('page-'+id).classList.add('active');
   btn.classList.add('active');
-  if (id==='tatca') { buildFilters(); filterAndRender(); }
-  if (id==='nhap') { renderTodayInvoices(); }
+  if (id==='nhap') {
+    // Lấy sub-tab đang active, gọi render tương ứng
+    const activeSub = document.querySelector('#page-nhap .sub-page.active');
+    if (activeSub) {
+      if (activeSub.id === 'sub-hom-nay') renderTodayInvoices();
+      else if (activeSub.id === 'sub-tat-ca') { buildFilters(); filterAndRender(); }
+      else if (activeSub.id === 'sub-da-xoa') renderTrash();
+      else renderTodayInvoices(); // sub-nhap-hd: không cần render thêm, nhưng update today nếu cần
+    }
+  }
   if (id==='danhmuc') renderSettings();
   if (id==='dashboard') renderDashboard();
   if (id==='doanhthu') initDoanhThu();
   if (id==='nhapung') { initUngTableIfEmpty(); buildUngFilters(); filterAndRenderUng(); }
   if (id==='chamcong') { populateCCCtSel(); rebuildCCNameList(); renderCCHistory(); renderCCTLT(); }
   if (id==='thietbi') { tbPopulateSels(); tbBuildRows(5); tbRenderList(); tbRenderThongKeVon(); }
+}
+
+// Sub-tab navigation bên trong page-nhap
+function goSubPage(btn, id) {
+  document.querySelectorAll('#page-nhap .sub-page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('#page-nhap .sub-nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  btn.classList.add('active');
+  if (id === 'sub-hom-nay') { renderTodayInvoices(); }
+  if (id === 'sub-tat-ca')  { buildFilters(); filterAndRender(); }
+  if (id === 'sub-da-xoa')  { renderTrash(); }
 }
 
 function onYearChange() {
