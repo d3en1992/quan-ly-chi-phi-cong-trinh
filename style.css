@@ -77,7 +77,8 @@ body { font-family: 'IBM Plex Sans', sans-serif; background: var(--bg); color: v
 .top-stat-val { font-family: 'IBM Plex Mono', monospace; font-weight: 600; color: #f0b429; }
 
 /* Content KHÔNG dùng margin-top cố định — sticky tự đẩy xuống */
-.content { padding: 20px 24px; max-width: 1700px; margin: 0 auto; }
+/* -webkit-overflow-scrolling: touch — cuộn mượt trên iOS Safari */
+.content { padding: 20px 24px; max-width: 1700px; margin: 0 auto; -webkit-overflow-scrolling: touch; }
 .page { display: none; }
 .page.active { display: block; }
 
@@ -478,8 +479,9 @@ select.cell-input {
    TOPBAR — Components + Responsive
    ═══════════════════════════════════════════════════════════ */
 
-/* Chặn horizontal scroll toàn trang */
-html, body { max-width: 100%; overflow-x: hidden; }
+/* Chặn horizontal scroll toàn trang — KHÔNG đặt overflow trên html (gây liệt cuộn iOS) */
+html { max-width: 100%; }
+body { max-width: 100%; overflow-x: hidden; }
 *, *::before, *::after { box-sizing: border-box; }
 
 /* Nhóm giữa: năm + tổng CP */
@@ -748,3 +750,129 @@ html, body { max-width: 100%; overflow-x: hidden; }
                 font-size: 12px; color: #555; }
 .pl-sign-box  { text-align: center; min-width: 140px; }
 .pl-sign-line { border-top: 1px solid #aaa; margin-top: 40px; padding-top: 4px; }
+
+/* ══ MỤC V: Sticky cột Tên CN trong bảng chấm công ════════════ */
+/* cc-sticky-0 và cc-sticky-1 (checkbox, #): KHÔNG sticky — trượt đi khi vuốt ngang */
+.cc-sticky-0 { /* placeholder — không sticky */ }
+.cc-sticky-1 { /* placeholder — không sticky */ }
+
+/* CHỈ cột Tên mới neo sát mép trái khi vuốt ngang */
+.cc-sticky-name {
+  position: sticky; left: 0; z-index: 2; background: var(--paper);
+  box-shadow: 2px 0 6px rgba(0,0,0,.08);
+}
+.entry-table thead .cc-sticky-name { z-index: 4; background: #eeece7; }
+.entry-table tbody tr:hover .cc-sticky-name { background: #fffcf3; }
+.cc-sum-row .cc-sticky-name { background: #f0ede8; }
+
+/* ══ MỤC VIII: Sticky sum row ══════════════════════════════════ */
+.cc-sum-row { position: sticky; bottom: 0; z-index: 3; }
+
+/* ══ MỤC VI: Sync status dot trên nút Cloud ════════════════════ */
+#jb-btn { position: relative; }
+#sync-dot {
+  position: absolute; top: -4px; right: -4px;
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--green); border: 2px solid #1a1814;
+  pointer-events: none; transition: background .3s;
+}
+#sync-dot.syncing { background: #f0b429; animation: sync-pulse 1s infinite; }
+#sync-dot.error   { background: var(--red); }
+#sync-dot.offline { background: var(--ink3); }
+#sync-dot.hidden  { display: none; }
+@keyframes sync-pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+/* ══ MỤC X: Topbar compact khi cuộn ════════════════════════════ */
+.topbar-row1 { transition: padding .2s; }
+.topbar.compact .topbar-row1 {
+  padding-top: 3px; padding-bottom: 3px; row-gap: 3px;
+}
+.topbar.compact .tb-btn { min-height: 30px; padding: 4px 8px; font-size: 13px; }
+.topbar.compact .tb-btn-cloud { padding: 4px 10px; font-size: 11px; }
+.topbar.compact .year-select { font-size: 12px; padding: 2px 6px; }
+.topbar.compact .top-stat { padding: 2px 8px; font-size: 11px; }
+@media (max-width: 768px) {
+  .topbar.compact .topbar-controls { padding-bottom: 0; }
+}
+
+/* ══ MỤC IX: Mobile touch optimization ═════════════════════════ */
+/* overscroll-behavior-y: none — chặn pull-to-refresh, KHÔNG ảnh hưởng cuộn thường */
+body { overscroll-behavior-y: none; }
+@media (pointer: coarse) {
+  .cc-tlt-chk,
+  #cc-tlt-chk-all,
+  .ung-row-chk,
+  #ung-chk-all { transform: scale(1.5); margin: 2px; }
+}
+
+/* ══ Card view Tổng Lương Tuần (mobile < 768px) ════════════════ */
+.tlt-card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  box-shadow: var(--shadow);
+}
+.tlt-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.tlt-card-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  flex: 1;
+  min-width: 0;
+}
+.tlt-card-label input[type="checkbox"] {
+  width: 20px; height: 20px; flex-shrink: 0; cursor: pointer;
+  accent-color: var(--blue);
+}
+.tlt-card-name {
+  font-weight: 700;
+  font-size: 15px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tlt-card-amount {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--green);
+  font-family: 'IBM Plex Mono', monospace;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.tlt-card-meta {
+  font-size: 12px;
+  color: var(--ink2);
+  margin-bottom: 6px;
+}
+.tlt-card-days {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.tlt-day-badge {
+  background: var(--line);
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-family: 'IBM Plex Mono', monospace;
+  color: var(--ink2);
+}
+.tlt-day-badge.tlt-day-full  { background: var(--green-bg); color: var(--green); font-weight: 700; }
+.tlt-day-badge.tlt-day-half  { background: var(--blue-bg);  color: var(--blue);  font-weight: 700; }
+.tlt-card-cts {
+  font-size: 11px;
+  color: var(--ink3);
+  border-top: 1px solid var(--line);
+  padding-top: 5px;
+  margin-top: 2px;
+}

@@ -289,8 +289,12 @@
     <div class="section-header" style="margin-top:28px">
       <div class="section-title"><span class="dot"></span>Danh Sách Thiết Bị Tại Công Trình</div>
       <div class="btn-group">
-        <select class="filter-sel" id="tb-filter-ct" onchange="tbRenderList()"><option value="">Tất cả công trình</option></select>
-        <select class="filter-sel" id="tb-filter-tt" onchange="tbRenderList()">
+        <div class="search-box" style="min-width:140px">
+          <span class="ico">🔍</span>
+          <input type="text" id="tb-search" placeholder="Tìm thiết bị..." oninput="tbPage=1;tbRenderList()">
+        </div>
+        <select class="filter-sel" id="tb-filter-ct" onchange="tbPage=1;tbRenderList()"><option value="">Tất cả công trình</option></select>
+        <select class="filter-sel" id="tb-filter-tt" onchange="tbPage=1;tbRenderList()">
           <option value="">Tất cả tình trạng</option>
           <option value="Đang hoạt động">Đang hoạt động</option>
           <option value="Hoạt động lâu">Hoạt động lâu</option>
@@ -559,11 +563,6 @@
         <button class="btn btn-outline btn-sm" id="cc-copy-btn" onclick="copyCCWeek()" title="Copy toàn bộ CN + ngày công + lương tuần này">📋 Copy tuần</button>
         <button class="btn btn-outline btn-sm" id="cc-paste-btn" onclick="pasteCCWeek()" title="Dán toàn bộ CN + ngày công đã copy" style="display:none">📌 Dán</button>
         <button class="btn btn-green btn-sm" onclick="saveCCWeek()">💾 Lưu tuần này</button>
-        <button class="btn btn-sm" onclick="xuatPhieuLuong()"
-          style="background:#2563eb;color:#fff;border:none;font-weight:700"
-          title="Tick chọn công nhân trong bảng rồi bấm để xuất phiếu lương PNG">
-          📸 Xuất Phiếu Lương
-        </button>
       </div>
     </div>
 
@@ -617,12 +616,21 @@
           <select class="filter-sel" id="cc-tlt-ct" onchange="ccTltPage=1;renderCCTLT()"><option value="">Tất cả CT</option></select>
           <select class="filter-sel" id="cc-tlt-week" onchange="ccTltPage=1;renderCCTLT()"><option value="">Tất cả tuần</option></select>
           <button class="btn btn-outline btn-sm" onclick="exportCCTLTCSV()">⬇ Xuất CSV</button>
+          <button class="btn btn-sm" onclick="xuatPhieuLuong()"
+            style="background:#2563eb;color:#fff;border:none;font-weight:700"
+            title="Tick chọn công nhân trong bảng rồi bấm để xuất phiếu lương PNG">
+            📸 Xuất Phiếu Lương
+          </button>
         </div>
       </div>
       <div class="records-wrap">
-        <div style="overflow-x:auto">
+        <div id="cc-tlt-table-wrap" style="overflow-x:auto">
           <table class="records-table">
             <thead><tr>
+              <th style="width:32px;text-align:center">
+                <input type="checkbox" id="cc-tlt-chk-all" title="Chọn tất cả"
+                  onchange="document.querySelectorAll('.cc-tlt-chk').forEach(x=>x.checked=this.checked)">
+              </th>
               <th>Tuần</th><th>Tên CN</th>
               <th style="text-align:center">CN</th><th style="text-align:center">T2</th>
               <th style="text-align:center">T3</th><th style="text-align:center">T4</th>
@@ -636,6 +644,7 @@
             <tbody id="cc-tlt-tbody"></tbody>
           </table>
         </div>
+        <div id="cc-tlt-cards" style="display:none;padding:4px"></div>
         <div class="pagination" id="cc-tlt-pagination"></div>
       </div>
     </div>
@@ -645,6 +654,10 @@
       <div class="section-header">
         <div class="section-title" style="font-size:14px"><span class="dot"></span>Lịch Sử Chấm Công Tuần</div>
         <div class="btn-group">
+          <div class="search-box" style="min-width:140px">
+            <span class="ico">🔍</span>
+            <input type="text" id="cc-hist-search" placeholder="Tìm tên CN..." oninput="ccHistPage=1;renderCCHistory()">
+          </div>
           <select class="filter-sel" id="cc-hist-ct" onchange="ccHistPage=1;renderCCHistory()"><option value="">Tất cả CT</option></select>
           <select class="filter-sel" id="cc-hist-week" onchange="ccHistPage=1;renderCCHistory()"><option value="">Tất cả tuần</option></select>
           <button class="btn btn-outline btn-sm" onclick="exportCCHistCSV()">⬇ Xuất CSV</button>

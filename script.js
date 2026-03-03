@@ -480,22 +480,25 @@ function fbPushAll() {
   const payload = fbYearPayload(yr);
   const kb = Math.round(JSON.stringify(payload).length/1024*10)/10;
   _fbPushing = true;
+  _ensureSyncDot(); _setSyncDot('syncing');
   showSyncBanner('☁️ Đang lưu (~' + kb + 'kb)...');
   fsSet(fbDocYear(yr), payload).then(res=>{
     _fbPushing = false;
     if (res.fields) {
+      _setSyncDot('');
       showSyncBanner('✅ Đã lưu cloud (~' + kb + 'kb)', 2000);
       updateJbBtn();
       // Push cats async
       fsSet(fbDocCats(), fbCatsPayload()).catch(()=>{});
     } else {
+      _setSyncDot('error');
       const err = res.error?.message || JSON.stringify(res.error) || '?';
       if (err.includes('PERMISSION_DENIED'))
         showSyncBanner('⚠️ Lỗi quyền truy cập — kiểm tra Security Rules', 5000);
       else
         showSyncBanner('⚠️ Lỗi lưu: ' + err.substring(0,60), 4000);
     }
-  }).catch(()=>{ _fbPushing=false; showSyncBanner('⚠️ Mất kết nối internet', 3000); });
+  }).catch(()=>{ _fbPushing=false; _setSyncDot('offline'); showSyncBanner('⚠️ Mất kết nối internet', 3000); });
 }
 
 // ── Alias jbPushAll cho các nơi gọi cũ ───────────────────
@@ -569,11 +572,29 @@ function updateJbBtn() {
     btn.textContent = '✅ Cloud';
     btn.style.background = 'rgba(26,122,69,0.4)';
     btn.style.borderColor = 'rgba(26,200,100,0.5)';
+    _ensureSyncDot();
   } else {
     btn.textContent = '☁️ Cloud';
     btn.style.background = 'rgba(255,255,255,0.12)';
     btn.style.borderColor = 'rgba(255,255,255,0.25)';
+    const dot = document.getElementById('sync-dot');
+    if (dot) dot.className = 'hidden';
   }
+}
+
+// VI: Sync status dot
+function _ensureSyncDot() {
+  const btn = document.getElementById('jb-btn');
+  if (!btn || document.getElementById('sync-dot')) return;
+  const dot = document.createElement('span');
+  dot.id = 'sync-dot';
+  btn.style.position = 'relative';
+  btn.appendChild(dot);
+}
+function _setSyncDot(status) {
+  const dot = document.getElementById('sync-dot');
+  if (!dot) return;
+  dot.className = status || '';
 }
 
 // ══ MODAL CẤU HÌNH ════════════════════════════════════════
@@ -835,6 +856,13 @@ function init() {
       new ResizeObserver(update).observe(topbar);
     }
     window.addEventListener('resize', update);
+  })();
+
+  // X: Topbar compact khi cuộn
+  (function initTopbarCompact() {
+    window.addEventListener('scroll', () => {
+      document.querySelector('.topbar')?.classList.toggle('compact', window.scrollY > 80);
+    }, { passive: true });
   })();
 
   // Tải dữ liệu mới nhất từ cloud (nếu đã có Bin ID)
@@ -1540,6 +1568,22 @@ function finishEdit(catId,idx) {
     if(catId==='nguoiTH'||catId==='nhaCungCap') ungRecords.forEach(r=>{ if(r.tp===old) r.tp=newVal; });
     if(catId==='congTrinh') ungRecords.forEach(r=>{ if(r.congtrinh===old) r.congtrinh=newVal; });
   }
+  // I.1: Cập nhật ccData + tbData khi đổi tên CT (giới hạn 2 năm)
+  if (catId === 'congTrinh') {
+    const curYear = activeYear || new Date().getFullYear();
+    const prevYear = curYear - 1;
+    let ccCh = false, tbCh = false;
+    ccData.forEach(w => {
+      const yr = parseInt((w.fromDate || '').slice(0, 4));
+      if ((yr === curYear || yr === prevYear) && w.ct === old) { w.ct = newVal; ccCh = true; }
+    });
+    tbData.forEach(r => {
+      const yr = parseInt((r.ngay || '').slice(0, 4));
+      if ((yr === curYear || yr === prevYear) && r.ct === old) { r.ct = newVal; tbCh = true; }
+    });
+    if (ccCh) save('cc_v2', ccData);
+    if (tbCh) { save('tb_v1', tbData); tbPopulateSels && tbPopulateSels(); tbRenderList && tbRenderList(); }
+  }
   saveCats(catId); save('inv_v3',invoices); save('ung_v1',ungRecords);
   renderSettings(); updateTop();
   // Cập nhật lại tab Tổng CP nếu đang đổi tên công trình
@@ -2176,12 +2220,8 @@ function buildCCTable(workers){
   });
   const BG='background:#eeece7;color:var(--ink)';
   thead.innerHTML=`
-    <th style="width:32px;text-align:center" title="Chọn để xuất phiếu lương">
-      <input type="checkbox" id="cc-chk-all" title="Chọn tất cả"
-        onchange="document.querySelectorAll('.cc-worker-chk').forEach(x=>x.checked=this.checked)">
-    </th>
     <th class="col-num">#</th>
-    <th style="min-width:130px">Tên Công Nhân</th>
+    <th class="cc-sticky-name" style="min-width:130px">Tên Công Nhân</th>
     <th style="width:44px;text-align:center">T/P</th>
     ${CC_DAY_LABELS.map((l,i)=>`<th class="cc-day-header">${l}<br><span style="font-size:9px;font-weight:400;color:var(--ink2)">${dates[i]}</span></th>`).join('')}
     <th style="width:46px;text-align:center;${BG}">TC</th>
@@ -2225,11 +2265,8 @@ function buildCCRow(w,num){
   const isKnown=w?.name?cats.congNhan.some(n=>n.toLowerCase()===(w.name||'').toLowerCase()):false;
 
   tr.innerHTML=`
-    <td style="text-align:center;padding:4px">
-      <input type="checkbox" class="cc-worker-chk" style="width:15px;height:15px;cursor:pointer">
-    </td>
     <td class="row-num">${num}</td>
-    <td style="padding:0">
+    <td class="cc-sticky-name" style="padding:0">
       <input class="cc-name-input" data-cc="name" list="cc-name-dl"
         value="${x(w?w.name||'':''||'')}" placeholder="Tên..."
         oninput="onCCNameInput(this)">
@@ -2361,8 +2398,8 @@ function updateCCSumRow(){
   if(!sumRow){ sumRow=document.createElement('tr'); sumRow.className='cc-sum-row'; document.getElementById('cc-tbody').appendChild(sumRow); }
   const mono="font-family:'IBM Plex Mono',monospace;font-weight:700";
   sumRow.innerHTML=`
-    <td></td>
-    <td colspan="2" style="padding:7px 12px;font-size:10px;font-weight:700;color:var(--ink2);text-transform:uppercase;letter-spacing:.5px">TỔNG</td>
+    <td class="row-num" style="font-size:10px;font-weight:700;color:var(--ink2)">∑</td>
+    <td class="cc-sticky-name" style="padding:7px 10px;font-size:10px;font-weight:700;color:var(--ink2);text-transform:uppercase;letter-spacing:.5px">TỔNG</td>
     ${dayT.map(v=>`<td style="text-align:center;${mono};font-size:12px;color:var(--ink2);padding:6px 4px">${v||''}</td>`).join('')}
     <td style="text-align:center;${mono};font-size:14px;color:var(--gold);padding:6px 8px">${tc}</td>
     <td></td>
@@ -2684,6 +2721,7 @@ function renderCCHistory(){
   buildCCHistFilters();
   const fCt=document.getElementById('cc-hist-ct').value;
   const fWk=document.getElementById('cc-hist-week').value;
+  const fQ=(document.getElementById('cc-hist-search')?.value||'').toLowerCase().trim();
 
   let rows=[];
   ccData.forEach(w=>{
@@ -2691,6 +2729,7 @@ function renderCCHistory(){
     if(fCt&&w.ct!==fCt) return;
     if(fWk&&w.fromDate!==fWk) return;
     w.workers.forEach(wk=>{
+      if(fQ&&!(wk.name||'').toLowerCase().includes(fQ)) return;
       const tc=wk.d.reduce((s,v)=>s+v,0);
       const tl=tc*wk.luong;
       const pc=wk.phucap||0;
@@ -2756,18 +2795,17 @@ function renderCCTLT(){
     if(fCt2&&w.ct!==fCt2) return;
     if(fWk&&w.fromDate!==fWk) return;
     w.workers.forEach(wk=>{
-      // key: nếu có lọc tuần → phân theo tuần, nếu không → gộp theo tên
       const key = fWk ? w.fromDate+'|'+wk.name : wk.name;
       if(!map[key]) map[key]={fromDate:w.fromDate,toDate:w.toDate,name:wk.name,
-        d:[0,0,0,0,0,0,0],tc:0,tl:0,pc:0,cts:[],luongList:[]};
+        d:[0,0,0,0,0,0,0],tc:0,tl:0,pc:0,hdml:0,cts:[],luongList:[]};
       wk.d.forEach((v,i)=>{ map[key].d[i]+=v; });
       const tc=wk.d.reduce((s,v)=>s+v,0);
       map[key].tc+=tc;
       map[key].tl+=tc*(wk.luong||0);
       map[key].pc+=(wk.phucap||0);
+      map[key].hdml+=(wk.hdmuale||0);
       if(!map[key].cts.includes(w.ct)) map[key].cts.push(w.ct);
       map[key].luongList.push(wk.luong||0);
-      // Cập nhật range ngày nếu gộp nhiều tuần
       if(!fWk){ if(w.fromDate<map[key].fromDate) map[key].fromDate=w.fromDate;
                 if(w.toDate>map[key].toDate) map[key].toDate=w.toDate; }
     });
@@ -2776,29 +2814,71 @@ function renderCCTLT(){
   const rows=Object.values(map).sort((a,b)=>
     fWk ? b.fromDate.localeCompare(a.fromDate)||a.name.localeCompare(b.name,'vi')
         : a.name.localeCompare(b.name,'vi'));
+
   const tbody=document.getElementById('cc-tlt-tbody');
+  const tableWrap=document.getElementById('cc-tlt-table-wrap');
+  const cardsEl=document.getElementById('cc-tlt-cards');
+  const isMobile=window.innerWidth<768;
+
   if(!rows.length){
-    tbody.innerHTML=`<tr class="empty-row"><td colspan="13">Chưa có dữ liệu</td></tr>`;
+    if(isMobile){ tableWrap.style.display='none'; cardsEl.style.display='block'; cardsEl.innerHTML='<p style="text-align:center;color:var(--ink3);padding:20px">Chưa có dữ liệu</p>'; }
+    else{ tableWrap.style.display=''; cardsEl.style.display='none'; tbody.innerHTML=`<tr class="empty-row"><td colspan="14">Chưa có dữ liệu</td></tr>`; }
     document.getElementById('cc-tlt-pagination').innerHTML=''; return;
   }
 
-  const grandTCLuong=rows.reduce((s,r)=>s+r.tl+r.pc,0);
+  const grandTCLuong=rows.reduce((s,r)=>s+r.tl+r.pc+r.hdml,0);
   const start=(ccTltPage-1)*CC_PG_TLT;
   const paged=rows.slice(start,start+CC_PG_TLT);
-
   const mono="font-family:'IBM Plex Mono',monospace";
-  tbody.innerHTML=paged.map(r=>{
-    const tcLuong=r.tl+r.pc;
-    const luongTB=r.tc>0?Math.round(tcLuong/r.tc):0;
-    return `<tr>
-    <td style="${mono};font-size:10px;color:var(--ink2);white-space:nowrap">${fWk?viShort(r.fromDate):'Tổng'}<br><span style="color:var(--ink3)">${fWk?viShort(r.toDate):r.tc+' công'}</span></td>
-    <td style="font-weight:700;font-size:13px">${x(r.name||'—')}</td>
-    ${r.d.map(v=>`<td style="text-align:center;${mono};font-weight:600;font-size:12px;${v===1?'color:var(--green)':v>0?'color:var(--blue)':'color:var(--line2)'}">${v||'·'}</td>`).join('')}
-    <td style="text-align:center;${mono};font-weight:700;color:var(--gold)">${r.tc}</td>
-    <td style="text-align:right;${mono};font-weight:700;font-size:13px;color:var(--green)">${tcLuong?numFmt(tcLuong):'—'}</td>
-    <td style="text-align:right;${mono};font-size:12px;color:var(--ink2)">${luongTB?numFmt(luongTB):'—'}</td>
-    <td style="font-size:11px;color:var(--ink2);max-width:200px">${r.cts.map(c=>x(c)).join('<br>')}</td>
-  </tr>`;}).join('');
+  const DAY_LABELS=['CN','T2','T3','T4','T5','T6','T7'];
+
+  if(isMobile){
+    // ── Mobile: card view ──
+    tableWrap.style.display='none';
+    cardsEl.style.display='block';
+    cardsEl.innerHTML=paged.map(r=>{
+      const tcLuong=r.tl+r.pc+r.hdml;
+      const daysHtml=r.d.map((v,i)=>v>0?`<span class="tlt-day-badge${v>=1?' tlt-day-full':' tlt-day-half'}">${DAY_LABELS[i]}: ${v}</span>`:'').filter(Boolean).join('');
+      const ctsHtml=r.cts.length?`<div class="tlt-card-cts">${r.cts.map(c=>x(c)).join(' · ')}</div>`:'';
+      const periodHtml=fWk?`${viShort(r.fromDate)} – ${viShort(r.toDate)}`:'Tổng nhiều tuần';
+      return `<div class="tlt-card"
+        data-name="${x(r.name)}" data-from="${r.fromDate}" data-to="${r.toDate}"
+        data-tc="${r.tc}" data-tl="${r.tl}" data-pc="${r.pc}" data-hdml="${r.hdml}"
+        data-cts="${r.cts.join('|')}">
+        <div class="tlt-card-header">
+          <label class="tlt-card-label">
+            <input type="checkbox" class="cc-tlt-chk">
+            <span class="tlt-card-name">${x(r.name||'—')}</span>
+          </label>
+          <span class="tlt-card-amount">${tcLuong?numFmt(tcLuong)+' đ':'—'}</span>
+        </div>
+        <div class="tlt-card-meta">${periodHtml} &nbsp;·&nbsp; <strong>${r.tc}</strong> công</div>
+        ${daysHtml?`<div class="tlt-card-days">${daysHtml}</div>`:''}
+        ${ctsHtml}
+      </div>`;
+    }).join('');
+  } else {
+    // ── Desktop: table view ──
+    tableWrap.style.display='';
+    cardsEl.style.display='none';
+    tbody.innerHTML=paged.map(r=>{
+      const tcLuong=r.tl+r.pc+r.hdml;
+      const luongTB=r.tc>0?Math.round(r.tl/r.tc):0;
+      return `<tr
+        data-name="${x(r.name)}" data-from="${r.fromDate}" data-to="${r.toDate}"
+        data-tc="${r.tc}" data-tl="${r.tl}" data-pc="${r.pc}" data-hdml="${r.hdml}"
+        data-cts="${r.cts.join('|')}">
+        <td style="text-align:center;padding:4px"><input type="checkbox" class="cc-tlt-chk" style="width:15px;height:15px;cursor:pointer"></td>
+        <td style="${mono};font-size:10px;color:var(--ink2);white-space:nowrap">${fWk?viShort(r.fromDate):'Tổng'}<br><span style="color:var(--ink3)">${fWk?viShort(r.toDate):r.tc+' công'}</span></td>
+        <td style="font-weight:700;font-size:13px">${x(r.name||'—')}</td>
+        ${r.d.map(v=>`<td style="text-align:center;${mono};font-weight:600;font-size:12px;${v===1?'color:var(--green)':v>0?'color:var(--blue)':'color:var(--line2)'}">${v||'·'}</td>`).join('')}
+        <td style="text-align:center;${mono};font-weight:700;color:var(--gold)">${r.tc}</td>
+        <td style="text-align:right;${mono};font-weight:700;font-size:13px;color:var(--green)">${tcLuong?numFmt(tcLuong):'—'}</td>
+        <td style="text-align:right;${mono};font-size:12px;color:var(--ink2)">${luongTB?numFmt(luongTB):'—'}</td>
+        <td style="font-size:11px;color:var(--ink2);max-width:200px">${r.cts.map(c=>x(c)).join('<br>')}</td>
+      </tr>`;
+    }).join('');
+  }
 
   const tp=Math.ceil(rows.length/CC_PG_TLT);
   let pag=`<span>${rows.length} công nhân · Tổng TC Lương: <strong style="color:var(--green);${mono}">${fmtS(grandTCLuong)}</strong></span>`;
@@ -3553,9 +3633,11 @@ let tbPage = 1;
 function tbRenderList() {
   const fCt = document.getElementById('tb-filter-ct')?.value || '';
   const fTt = document.getElementById('tb-filter-tt')?.value || '';
+  const fQ  = (document.getElementById('tb-search')?.value || '').toLowerCase().trim();
   let filtered = tbData.filter(r => {
     if (fCt && r.ct !== fCt) return false;
     if (fTt && r.tinhtrang !== fTt) return false;
+    if (fQ && !(r.ten||'').toLowerCase().includes(fQ) && !(r.nguoi||'').toLowerCase().includes(fQ) && !(r.ghichu||'').toLowerCase().includes(fQ)) return false;
     // Lọc mềm theo năm: TB của CT có phát sinh năm đang chọn, HOẶC đang hoạt động
     if (activeYear !== 0) {
       const ctActive = _entityInYear(r.ct, 'ct');
@@ -5065,48 +5147,54 @@ function removeVietnameseTones(str) {
 }
 
 function xuatPhieuLuong() {
-  // 1. Thu thập dòng được tick
+  // 1. Thu thập công nhân được tick từ bảng Tổng Lương Tuần
+  //    Hỗ trợ cả table row (desktop) và card div (mobile)
   const rows = [];
-  document.querySelectorAll('#cc-tbody tr:not(.cc-sum-row)').forEach(tr => {
-    const chk = tr.querySelector('.cc-worker-chk');
-    if (!chk || !chk.checked) return;
-
-    const name   = tr.querySelector('[data-cc="name"]')?.value?.trim() || '(Chưa đặt tên)';
-    const tc     = parseFloat(tr.querySelector('[data-cc="tc"]')?.textContent || '0') || 0;
-    const luong  = parseInt(tr.querySelector('[data-cc="luong"]')?.dataset?.raw || '0') || 0;
-    const phucap = parseInt(tr.querySelector('[data-cc="phucap"]')?.dataset?.raw || '0') || 0;
-    const hdml   = parseInt(tr.querySelector('[data-cc="hdml"]')?.dataset?.raw || '0') || 0;
-    const tongCong = tc * luong + phucap + hdml;
-    rows.push({ name, tc, luong, phucap, hdml, tongCong });
+  document.querySelectorAll('.cc-tlt-chk:checked').forEach(chk => {
+    const container = chk.closest('[data-name]');
+    if (!container) return;
+    const name     = container.dataset.name || '(Chưa đặt tên)';
+    const fromDate = container.dataset.from  || '';
+    const toDate   = container.dataset.to    || '';
+    const tc       = parseFloat(container.dataset.tc)   || 0;
+    const tl       = parseInt(container.dataset.tl)     || 0; // tc * luong
+    const pc       = parseInt(container.dataset.pc)     || 0; // phụ cấp
+    const hdml     = parseInt(container.dataset.hdml)   || 0; // HĐ mua lẻ
+    const cts      = (container.dataset.cts || '').split('|').filter(Boolean);
+    const tongCong = tl + pc + hdml;
+    const luongTB  = tc > 0 ? Math.round(tl / tc) : 0;
+    rows.push({ name, fromDate, toDate, tc, tl, pc, hdml, cts, tongCong, luongTB });
   });
 
   if (!rows.length) {
-    toast('⚠️ Vui lòng tick chọn ít nhất 1 công nhân!', 'error');
+    toast('⚠️ Tick chọn ít nhất 1 công nhân trong bảng Tổng Lương Tuần!', 'error');
     return;
   }
 
-  // 2. Lấy thông tin tuần
-  const ct     = document.getElementById('cc-ct-sel')?.value || '(Chưa chọn CT)';
-  const fromDt = document.getElementById('cc-from')?.value || '';
-  const toDt   = document.getElementById('cc-to')?.value   || '';
-  const period = fromDt && toDt
-    ? _fmtDate(fromDt) + ' — ' + _fmtDate(toDt)
-    : '(Chưa rõ)';
-  const today_ = new Date().toLocaleDateString('vi-VN');
+  // 2. Tổng hợp thông tin chung
+  const allFrom = rows.map(r => r.fromDate).filter(Boolean).sort();
+  const allTo   = rows.map(r => r.toDate).filter(Boolean).sort();
+  const fromDt  = allFrom[0] || '';
+  const toDt    = allTo[allTo.length - 1] || '';
+  const period  = fromDt && toDt ? _fmtDate(fromDt) + ' — ' + _fmtDate(toDt) : '(Chưa rõ)';
+
+  const allCts     = [...new Set(rows.flatMap(r => r.cts))];
+  const ctLabel    = allCts.join(', ') || '(Nhiều công trình)';
+  const today_     = new Date().toLocaleDateString('vi-VN');
   const tongThanhToan = rows.reduce((s, r) => s + r.tongCong, 0);
 
   // 3. Đổ dữ liệu vào template
-  document.getElementById('pl-ct-name').textContent = ct;
-  document.getElementById('pl-ct-label').textContent = ct;
+  document.getElementById('pl-ct-name').textContent = ctLabel;
+  document.getElementById('pl-ct-label').textContent = ctLabel;
   document.getElementById('pl-period').textContent   = period;
   document.getElementById('pl-date').textContent     = today_;
 
-  document.getElementById('pl-tbody').innerHTML = rows.map((r, i) => `
+  document.getElementById('pl-tbody').innerHTML = rows.map(r => `
     <tr>
       <td>${x(r.name)}</td>
       <td>${r.tc}</td>
-      <td>${r.luong ? numFmt(r.luong) + ' đ' : '—'}</td>
-      <td>${r.phucap ? numFmt(r.phucap) + ' đ' : '—'}</td>
+      <td>${r.luongTB ? numFmt(r.luongTB) + ' đ' : '—'}</td>
+      <td>${r.pc ? numFmt(r.pc) + ' đ' : '—'}</td>
       <td style="color:#c0392b">${r.hdml ? numFmt(r.hdml) + ' đ' : '—'}</td>
       <td style="font-weight:700;color:#c8870a">${numFmt(r.tongCong)} đ</td>
     </tr>`).join('');
@@ -5120,15 +5208,13 @@ function xuatPhieuLuong() {
   tpl.style.display = 'block';
 
   // 5. Chụp bằng html2canvas
-  // Tạo tên file: Phieuluong_TênCT_Thợ1_3cong_Thợ2_4cong.png
-  const safeCT = removeVietnameseTones(ct);
+  const safeCT = removeVietnameseTones(ctLabel);
   const workerParts = rows.map(r =>
     removeVietnameseTones(r.name) + '_' + r.tc + 'cong'
   ).join('_');
   const fileName = 'Phieuluong_' + safeCT + '_' + workerParts;
   toast('⏳ Đang tạo phiếu lương...', 'info');
 
-  // Đợi font render
   document.fonts.ready.then(() => {
     html2canvas(tpl, {
       scale: 2,
