@@ -63,10 +63,11 @@ function init() {
     ungRecords  = load('ung_v1', []);
     ccData      = load('cc_v2', []);
     tbData      = load('tb_v1', []);
-    cats.congTrinh  = load('cat_ct',    DEFAULTS.congTrinh);
-    cats.loaiChiPhi = load('cat_loai',  DEFAULTS.loaiChiPhi);
-    cats.nhaCungCap = load('cat_ncc',   DEFAULTS.nhaCungCap);
-    cats.nguoiTH    = load('cat_nguoi', DEFAULTS.nguoiTH);
+    cats.congTrinh      = load('cat_ct',       DEFAULTS.congTrinh);
+    cats.congTrinhYears = load('cat_ct_years', {});
+    cats.loaiChiPhi     = load('cat_loai',     DEFAULTS.loaiChiPhi);
+    cats.nhaCungCap     = load('cat_ncc',      DEFAULTS.nhaCungCap);
+    cats.nguoiTH        = load('cat_nguoi',    DEFAULTS.nguoiTH);
     buildYearSelect(); updateTop();
     rebuildEntrySelects(); rebuildCCNameList(); populateCCCtSel();
     initTable(5); initUngTable(4); initCC();
@@ -157,6 +158,9 @@ function _refreshAllTabs() {
   buildCCHistFilters();
   populateCCCtSel();        // dropdown CT trong Chấm Công
   tbPopulateSels();         // dropdown CT trong Thiết Bị
+  rebuildEntrySelects();    // dropdown CT trong bảng nhập HĐ đang mở
+  rebuildUngSelects();      // dropdown CT trong bảng nhập tiền ứng đang mở
+  renderSettings();         // Tab Danh Mục — lọc CT theo năm mới
 
   // Tầng 2: Render lại nội dung TẤT CẢ các tab
   filterAndRender();        // Tất cả CP

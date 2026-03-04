@@ -677,8 +677,8 @@ function pasteCCWeek(){
 function populateCCCtSel(){
   // Lấy tất cả CT từ danh mục + ccData
   const allCts = [...new Set([...cats.congTrinh, ...ccData.map(w=>w.ct)].filter(Boolean))].sort();
-  // Lọc mềm: chỉ hiện CT có phát sinh trong năm đang chọn (hoặc "Tất cả năm")
-  const filtered = allCts.filter(ct => _entityInYear(ct, 'ct'));
+  // Lọc theo năm: ưu tiên year field, fallback check dữ liệu phát sinh
+  const filtered = allCts.filter(ct => _ctInActiveYear(ct));
   const sel = document.getElementById('cc-ct-sel');
   const cur = sel.value;
   sel.innerHTML = '<option value="">-- Chọn công trình --</option>' +

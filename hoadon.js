@@ -20,7 +20,7 @@ function addRow(d={}) {
   const tr = document.createElement('tr');
 
   const loaiOpts = `<option value="">-- Chọn --</option>` + cats.loaiChiPhi.map(v=>`<option value="${x(v)}" ${v===(d.loai||'')?'selected':''}>${x(v)}</option>`).join('');
-  const ctOpts = `<option value="">-- Chọn --</option>` + cats.congTrinh.map(v=>`<option value="${x(v)}" ${v===ctDef?'selected':''}>${x(v)}</option>`).join('');
+  const ctOpts = `<option value="">-- Chọn --</option>` + cats.congTrinh.filter(v => _ctInActiveYear(v) || v === ctDef).map(v=>`<option value="${x(v)}" ${v===ctDef?'selected':''}>${x(v)}</option>`).join('');
   const dlNguoi = 'dlN' + num + Date.now();
   const dlNcc   = 'dlC' + num + Date.now();
 
@@ -434,7 +434,7 @@ function editManualInvoice(id) {
 function showEditInvoiceModal(inv) {
   let ov=document.getElementById('edit-inv-overlay');
   if(!ov){ov=document.createElement('div');ov.id='edit-inv-overlay';ov.style.cssText='position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px';ov.onclick=function(e){if(e.target===this)this.remove();};document.body.appendChild(ov);}
-  const ctOpts=cats.congTrinh.map(v=>`<option value="${x(v)}" ${v===inv.congtrinh?'selected':''}>${x(v)}</option>`).join('');
+  const ctOpts=cats.congTrinh.filter(v=>_ctInActiveYear(v)||v===inv.congtrinh).map(v=>`<option value="${x(v)}" ${v===inv.congtrinh?'selected':''}>${x(v)}</option>`).join('');
   const loaiOpts=cats.loaiChiPhi.map(v=>`<option value="${x(v)}" ${v===inv.loai?'selected':''}>${x(v)}</option>`).join('');
   ov.innerHTML=`<div style="background:#fff;border-radius:14px;padding:24px;width:min(480px,96vw);box-shadow:0 8px 32px rgba(0,0,0,.2);font-family:'IBM Plex Sans',sans-serif" onclick="event.stopPropagation()">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
@@ -540,15 +540,27 @@ function renderSettings() {
   const grid=document.getElementById('dm-grid');
   grid.innerHTML='';
   CATS.forEach(cfg=>{
-    const list=cats[cfg.id];
+    const fullList = cats[cfg.id];
+    // Lọc công trình theo năm, giữ idx gốc để edit/xóa đúng
+    const withIdx = fullList.map((item, idx) => ({item, idx}));
+    const filtered = (cfg.id === 'congTrinh' && activeYear !== 0)
+      ? withIdx.filter(({item}) => _ctInActiveYear(item))
+      : withIdx;
+    const countLabel = (cfg.id === 'congTrinh' && activeYear !== 0)
+      ? `${filtered.length} / ${fullList.length}`
+      : `${fullList.length}`;
     const card=document.createElement('div');
     card.className='settings-card';
     card.innerHTML=`
       <div class="settings-card-head">
-        <div class="settings-card-title">${cfg.title} <span style="font-size:11px;font-weight:400;color:var(--ink3)">(${list.length})</span></div>
+        <div class="settings-card-title">${cfg.title} <span style="font-size:11px;font-weight:400;color:var(--ink3)">(${countLabel})</span></div>
       </div>
       <div class="settings-list" id="sl-${cfg.id}">
-        ${list.map((item,idx)=>cfg.id==='congNhan'?renderCNItem(item,idx):renderItem(cfg.id,item,idx)).join('')}
+        ${filtered.map(({item,idx})=>
+          cfg.id==='congNhan'  ? renderCNItem(item,idx) :
+          cfg.id==='congTrinh' ? renderCTItem(item,idx) :
+          renderItem(cfg.id,item,idx)
+        ).join('')}
       </div>
       <div class="settings-add">
         <input type="text" id="sa-${cfg.id}" placeholder="Thêm mới..." onkeydown="if(event.key==='Enter')addItem('${cfg.id}')">
@@ -558,6 +570,26 @@ function renderSettings() {
   });
   // Render panel sao lưu
   renderBackupList();
+}
+
+// ── Render item Công Trình với badge năm ──────────────────────────
+function renderCTItem(item, idx) {
+  const inUse = isItemInUse('congTrinh', item);
+  const yr = cats.congTrinhYears && cats.congTrinhYears[item];
+  const yrBadge = yr
+    ? `<span style="font-size:10px;color:#1565c0;padding:1px 5px;background:rgba(21,101,192,0.1);border-radius:3px;margin-right:2px;flex-shrink:0">${yr}</span>`
+    : '';
+  return `<div class="settings-item" id="si-congTrinh-${idx}" style="${inUse?'background:rgba(26,122,69,0.04)':''}">
+    <span class="s-name" id="sn-congTrinh-${idx}" ondblclick="startEdit('congTrinh',${idx})">${x(item)}</span>
+    ${yrBadge}
+    ${inUse?`<span title="Đang được sử dụng" style="font-size:10px;color:#1a7a45;padding:2px 5px;background:rgba(26,122,69,0.1);border-radius:3px;margin-right:2px;flex-shrink:0">✓ đang dùng</span>`:''}
+    <input class="s-edit-input" id="se-congTrinh-${idx}" value="${x(item)}"
+      onblur="finishEdit('congTrinh',${idx})"
+      onkeydown="if(event.key==='Enter')finishEdit('congTrinh',${idx});if(event.key==='Escape')cancelEdit('congTrinh',${idx})">
+    <button class="btn btn-outline btn-sm btn-icon" onclick="startEdit('congTrinh',${idx})" title="Sửa tên">✏️</button>
+    <button class="btn ${inUse?'btn-outline':'btn-danger'} btn-sm btn-icon" onclick="delItem('congTrinh',${idx})"
+      title="${inUse?'Đang được sử dụng — không thể xóa':'Xóa'}" ${inUse?'style="opacity:0.4;cursor:not-allowed"':''}>✕</button>
+  </div>`;
 }
 
 function renderItem(catId,item,idx) {
@@ -660,6 +692,11 @@ function finishEdit(catId,idx) {
     });
     if (ccCh) save('cc_v2', ccData);
     if (tbCh) { save('tb_v1', tbData); tbPopulateSels && tbPopulateSels(); tbRenderList && tbRenderList(); }
+    // Cập nhật key trong congTrinhYears nếu có
+    if (cats.congTrinhYears && cats.congTrinhYears[old] !== undefined) {
+      cats.congTrinhYears[newVal] = cats.congTrinhYears[old];
+      delete cats.congTrinhYears[old];
+    }
   }
   saveCats(catId); save('inv_v3',invoices); save('ung_v1',ungRecords);
   renderSettings(); updateTop();
@@ -672,8 +709,17 @@ function addItem(catId) {
   const val=inp.value.trim();
   if(!val) return;
   if(cats[catId].includes(val)){toast('Mục này đã tồn tại!','error');return;}
-  cats[catId].push(val); saveCats(catId); inp.value='';
+  cats[catId].push(val);
+  // Gán năm cho công trình mới (để lọc theo năm)
+  if (catId === 'congTrinh') {
+    cats.congTrinhYears[val] = activeYear || new Date().getFullYear();
+  }
+  saveCats(catId); inp.value='';
   renderSettings(); rebuildEntrySelects(); rebuildUngSelects();
+  if (catId === 'congTrinh') {
+    try { populateCCCtSel(); } catch(e) {}
+    try { tbPopulateSels(); } catch(e) {}
+  }
   toast(`✅ Đã thêm "${val}"`,'success');
 }
 function isItemInUse(catId, item) {
@@ -689,10 +735,11 @@ function isItemInUse(catId, item) {
   if(catId==='thauPhu'||catId==='nhaCungCap') {
     if(ungRecords.some(r=>(r.tp||'')=== item)) return true;
   }
-  // Kiểm tra congTrinh trong cc + ung
+  // Kiểm tra congTrinh trong cc + ung + thietbi
   if(catId==='congTrinh') {
     if(ungRecords.some(r=>(r.congtrinh||'')=== item)) return true;
     if(ccData.some(w=>(w.ct||'')=== item)) return true;
+    if(tbData.some(r=>(r.ct||'')=== item)) return true;
   }
   return false;
 }
@@ -700,12 +747,21 @@ function isItemInUse(catId, item) {
 function delItem(catId,idx) {
   const item=cats[catId][idx];
   if(isItemInUse(catId, item)) {
-    toast(`⚠️ Không thể xóa "${item}" — đang được sử dụng trong dữ liệu!`, 'error');
+    toast(`⚠️ Công trình đã có dữ liệu, không thể xóa.`, 'error');
     return;
   }
   if(!confirm(`Xóa "${item}" khỏi danh mục?`)) return;
-  cats[catId].splice(idx,1); saveCats(catId);
+  cats[catId].splice(idx,1);
+  // Xóa year entry nếu có
+  if (catId === 'congTrinh' && cats.congTrinhYears) {
+    delete cats.congTrinhYears[item];
+  }
+  saveCats(catId);
   renderSettings(); rebuildEntrySelects(); rebuildUngSelects();
+  if (catId === 'congTrinh') {
+    try { populateCCCtSel(); } catch(e) {}
+    try { tbPopulateSels(); } catch(e) {}
+  }
   toast(`Đã xóa "${item}"`);
 }
 
@@ -713,7 +769,7 @@ function rebuildEntrySelects() {
   document.querySelectorAll('#entry-tbody [data-f="ct"]').forEach(sel=>{
     if(sel.tagName==='SELECT'){
       const cur=sel.value;
-      sel.innerHTML=`<option value="">-- Chọn --</option>`+cats.congTrinh.map(v=>`<option value="${x(v)}" ${v===cur?'selected':''}>${x(v)}</option>`).join('');
+      sel.innerHTML=`<option value="">-- Chọn --</option>`+cats.congTrinh.filter(v=>_ctInActiveYear(v)||v===cur).map(v=>`<option value="${x(v)}" ${v===cur?'selected':''}>${x(v)}</option>`).join('');
     }
   });
   document.querySelectorAll('#entry-tbody [data-f="loai"]').forEach(sel=>{
@@ -756,7 +812,7 @@ function addUngRow(d={}) {
   const tbody = document.getElementById('ung-tbody');
   const num = tbody.children.length + 1;
   const dlTp  = 'dlTP'  + num + Date.now();
-  const ctOpts = `<option value="">-- Chọn --</option>` + cats.congTrinh.map(v=>`<option value="${x(v)}" ${v===(d.congtrinh||'')?'selected':''}>${x(v)}</option>`).join('');
+  const ctOpts = `<option value="">-- Chọn --</option>` + cats.congTrinh.filter(v => _ctInActiveYear(v) || v===(d.congtrinh||'')).map(v=>`<option value="${x(v)}" ${v===(d.congtrinh||'')?'selected':''}>${x(v)}</option>`).join('');
 
   const tr = document.createElement('tr');
   tr.innerHTML = `
@@ -918,7 +974,7 @@ function rebuildUngSelects() {
   document.querySelectorAll('#ung-tbody [data-f="ct"]').forEach(sel=>{
     if(sel.tagName==='SELECT'){
       const cur=sel.value;
-      sel.innerHTML=`<option value="">-- Chọn --</option>`+cats.congTrinh.map(v=>`<option value="${x(v)}" ${v===cur?'selected':''}>${x(v)}</option>`).join('');
+      sel.innerHTML=`<option value="">-- Chọn --</option>`+cats.congTrinh.filter(v=>_ctInActiveYear(v)||v===cur).map(v=>`<option value="${x(v)}" ${v===cur?'selected':''}>${x(v)}</option>`).join('');
     }
   });
   document.querySelectorAll('#ung-tbody [data-f="tp"]').forEach(inp=>{

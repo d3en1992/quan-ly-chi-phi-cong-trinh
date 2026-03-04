@@ -25,14 +25,15 @@ function tbPopulateSels() {
     ...[...new Set([...cats.congTrinh, ...tbData.map(r=>r.ct)]
       .filter(v => v && v !== TB_KHO_TONG))].sort()
   ];
-  // Lọc mềm: CT có phát sinh trong năm đang chọn
-  const filtered = allCts.filter(ct => _entityInYear(ct, 'ct'));
+  // Lọc theo năm: ưu tiên year field, fallback check dữ liệu phát sinh
+  const filtered = allCts.filter(ct => _ctInActiveYear(ct));
 
   const sel = document.getElementById('tb-ct-sel');
   const cur = sel.value;
-  // Select nhập mới: dùng allCts (không lọc năm — cho phép gán TB vào CT bất kỳ)
+  // Select nhập mới: lọc theo năm, giữ giá trị hiện tại nếu có
+  const ctForInput = allCts.filter(ct => ct === TB_KHO_TONG || _ctInActiveYear(ct) || ct === cur);
   sel.innerHTML = '<option value="">-- Chọn công trình --</option>' +
-    allCts.map(v=>`<option value="${x(v)}" ${v===cur?'selected':''}>${x(v)}</option>`).join('');
+    ctForInput.map(v=>`<option value="${x(v)}" ${v===cur?'selected':''}>${x(v)}</option>`).join('');
 
   // Filter danh sách: chỉ CT có liên quan năm đang chọn
   const fSel = document.getElementById('tb-filter-ct');
@@ -279,7 +280,7 @@ function tbEditRow(id) {
     ov.onclick = function(e){ if(e.target===this) this.remove(); };
     document.body.appendChild(ov);
   }
-  const ctOpts = cats.congTrinh.map(v=>`<option value="${x(v)}" ${v===r.ct?'selected':''}>${x(v)}</option>`).join('');
+  const ctOpts = cats.congTrinh.filter(v=>_ctInActiveYear(v)||v===r.ct).map(v=>`<option value="${x(v)}" ${v===r.ct?'selected':''}>${x(v)}</option>`).join('');
   const ttOpts = TB_TINH_TRANG.map(v=>`<option value="${v}" ${r.tinhtrang===v?'selected':''}>${v}</option>`).join('');
   ov.innerHTML = `
   <div style="background:#fff;border-radius:14px;padding:24px;width:min(480px,96vw);box-shadow:0 8px 32px rgba(0,0,0,.2);font-family:'IBM Plex Sans',sans-serif" onclick="event.stopPropagation()">

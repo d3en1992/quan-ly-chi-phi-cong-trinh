@@ -146,6 +146,18 @@ function inActiveYear(dateStr) {
   return parseInt(dateStr.split('-')[0]) === activeYear;
 }
 
+// Kiểm tra công trình có thuộc năm đang chọn không
+// Ưu tiên: 1) CT mới tạo có year field khớp → true; 2) CT cũ: check qua dữ liệu phát sinh
+function _ctInActiveYear(name) {
+  if (activeYear === 0) return true;
+  if (!name) return false;
+  // 1. CT mới: có year field rõ ràng
+  const yr = cats.congTrinhYears && cats.congTrinhYears[name];
+  if (yr && yr === activeYear) return true;
+  // 2. CT cũ / CT đã có dữ liệu trong năm
+  return _entityInYear(name, 'ct');
+}
+
 // Tầng 2 — lọc mềm cho entity (CT, CN, TB)
 // Trả về true nếu entity có BẤT KỲ phát sinh nào trong năm đang chọn
 // Dùng cho: dropdown, danh mục, tổng hợp

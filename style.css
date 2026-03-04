@@ -122,6 +122,7 @@ body { font-family: 'IBM Plex Sans', sans-serif; background: var(--bg); color: v
   padding: 6px 26px 6px 9px; border: 1px solid var(--line2); border-radius: 5px;
   font-size: 13px; background: var(--bg); font-family: 'IBM Plex Sans', sans-serif;
   color: var(--ink); outline: none; cursor: pointer; appearance: none; min-width: 260px;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239a9590'/%3E%3C/svg%3E");
   background-repeat: no-repeat; background-position: right 8px center;
 }
@@ -161,6 +162,9 @@ body { font-family: 'IBM Plex Sans', sans-serif; background: var(--bg); color: v
 .cell-input.mono { font-family: 'IBM Plex Mono', monospace; }
 .cell-input.right { text-align: right; font-family: 'IBM Plex Mono', monospace; font-weight: 600; }
 .cell-input.center { text-align: center; }
+/* Dropdown công trình trong bảng không bị cắt tên */
+select.cell-input[data-f="ct"] { min-width: 180px; }
+
 select.cell-input {
   cursor: pointer; appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239a9590'/%3E%3C/svg%3E");
@@ -343,7 +347,7 @@ select.cell-input {
 
   /* Entry date bar */
   .entry-date-bar { gap: 8px; padding: 10px 12px; }
-  .bare-select { min-width: 0; width: 100%; font-size: 12px; }
+  .bare-select { min-width: 180px; width: auto; max-width: 100%; font-size: 12px; }
 
   /* Save bar */
   .save-bar { flex-direction: column; gap: 6px; align-items: stretch; padding: 10px 12px; }

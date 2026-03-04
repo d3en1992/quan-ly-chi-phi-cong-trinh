@@ -250,12 +250,13 @@ function importJSON(file) {
       ungRecords = load('ung_v1', []);
       ccData     = load('cc_v2', []);
       tbData     = load('tb_v1', []);
-      cats.congTrinh  = load('cat_ct',    DEFAULTS.congTrinh);
-      cats.loaiChiPhi = load('cat_loai',  DEFAULTS.loaiChiPhi);
-      cats.nhaCungCap = load('cat_ncc',   DEFAULTS.nhaCungCap);
-      cats.nguoiTH    = load('cat_nguoi', DEFAULTS.nguoiTH);
-      cats.thauPhu    = load('cat_tp',    []);
-      cats.congNhan   = load('cat_cn',    []);
+      cats.congTrinh      = load('cat_ct',       DEFAULTS.congTrinh);
+      cats.congTrinhYears = load('cat_ct_years', {});
+      cats.loaiChiPhi     = load('cat_loai',     DEFAULTS.loaiChiPhi);
+      cats.nhaCungCap     = load('cat_ncc',      DEFAULTS.nhaCungCap);
+      cats.nguoiTH        = load('cat_nguoi',    DEFAULTS.nguoiTH);
+      cats.thauPhu        = load('cat_tp',       []);
+      cats.congNhan       = load('cat_cn',       []);
 
       buildYearSelect(); _refreshAllTabs();
       rebuildEntrySelects(); rebuildUngSelects();
@@ -297,12 +298,13 @@ function restoreFromBackup(index) {
   ungRecords = load('ung_v1', []);
   ccData     = load('cc_v2', []);
   tbData     = load('tb_v1', []);
-  cats.congTrinh  = load('cat_ct',    DEFAULTS.congTrinh);
-  cats.loaiChiPhi = load('cat_loai',  DEFAULTS.loaiChiPhi);
-  cats.nhaCungCap = load('cat_ncc',   DEFAULTS.nhaCungCap);
-  cats.nguoiTH    = load('cat_nguoi', DEFAULTS.nguoiTH);
-  cats.thauPhu    = load('cat_tp',    []);
-  cats.congNhan   = load('cat_cn',    []);
+  cats.congTrinh      = load('cat_ct',       DEFAULTS.congTrinh);
+  cats.congTrinhYears = load('cat_ct_years', {});
+  cats.loaiChiPhi     = load('cat_loai',     DEFAULTS.loaiChiPhi);
+  cats.nhaCungCap     = load('cat_ncc',      DEFAULTS.nhaCungCap);
+  cats.nguoiTH        = load('cat_nguoi',    DEFAULTS.nguoiTH);
+  cats.thauPhu        = load('cat_tp',       []);
+  cats.congNhan       = load('cat_cn',       []);
 
   buildYearSelect(); _refreshAllTabs();
   rebuildEntrySelects(); rebuildUngSelects();
@@ -717,10 +719,11 @@ function reloadFromCloud() {
     ungRecords = load('ung_v1', []);
     ccData     = load('cc_v2', []);
     tbData     = load('tb_v1', []);
-    cats.congTrinh  = load('cat_ct',    DEFAULTS.congTrinh);
-    cats.loaiChiPhi = load('cat_loai',  DEFAULTS.loaiChiPhi);
-    cats.nhaCungCap = load('cat_ncc',   DEFAULTS.nhaCungCap);
-    cats.nguoiTH    = load('cat_nguoi', DEFAULTS.nguoiTH);
+    cats.congTrinh      = load('cat_ct',       DEFAULTS.congTrinh);
+    cats.congTrinhYears = load('cat_ct_years', {});
+    cats.loaiChiPhi     = load('cat_loai',     DEFAULTS.loaiChiPhi);
+    cats.nhaCungCap     = load('cat_ncc',      DEFAULTS.nhaCungCap);
+    cats.nguoiTH        = load('cat_nguoi',    DEFAULTS.nguoiTH);
     buildYearSelect();
     rebuildEntrySelects(); rebuildUngSelects();
     buildFilters(); filterAndRender(); renderTrash();
@@ -776,6 +779,10 @@ function saveCats(catId) {
   const cfg = CATS.find(c=>c.id===catId);
   if (cfg) {
     localStorage.setItem(cfg.sk, JSON.stringify(cats[catId]));
+    // Khi lưu congTrinh → cũng lưu congTrinhYears (map tên → năm)
+    if (catId === 'congTrinh') {
+      localStorage.setItem('cat_ct_years', JSON.stringify(cats.congTrinhYears || {}));
+    }
     clearTimeout(save._t);
     save._t = setTimeout(()=>{
       if (!fbReady()) return;
@@ -802,12 +809,13 @@ function hideSyncBanner() {
 }
 
 let cats = {
-  congTrinh:  load('cat_ct',    DEFAULTS.congTrinh),
-  loaiChiPhi: load('cat_loai',  DEFAULTS.loaiChiPhi),
-  nhaCungCap: load('cat_ncc',   DEFAULTS.nhaCungCap),
-  nguoiTH:    load('cat_nguoi', DEFAULTS.nguoiTH),
-  thauPhu:    load('cat_tp',    []),
-  congNhan:   load('cat_cn',    [])
+  congTrinh:      load('cat_ct',       DEFAULTS.congTrinh),
+  congTrinhYears: load('cat_ct_years', {}),  // { "tên CT": năm tạo }
+  loaiChiPhi:     load('cat_loai',     DEFAULTS.loaiChiPhi),
+  nhaCungCap:     load('cat_ncc',      DEFAULTS.nhaCungCap),
+  nguoiTH:        load('cat_nguoi',    DEFAULTS.nguoiTH),
+  thauPhu:        load('cat_tp',       []),
+  congNhan:       load('cat_cn',       [])
 };
 let cnRoles = load('cat_cn_roles', {}); // { "Tên CN": "C/T/P" }
 
