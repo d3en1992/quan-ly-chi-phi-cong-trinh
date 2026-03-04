@@ -730,16 +730,32 @@
       </div>
     </div>
 
-    <!-- Hàng 3: Top 5 + CT cao nhất -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:22px">
+    <!-- Tầng 2: Chi tiết theo Công Trình -->
+    <div class="section-header" style="margin-bottom:14px">
+      <div class="section-title"><span class="dot"></span>🔍 Chi Tiết Theo Công Trình</div>
+      <select class="filter-sel" id="db-filter-ct"
+              onchange="selectedCT=this.value;renderDashboard()"
+              style="font-size:12px;min-width:160px">
+        <option value="">-- Tất cả công trình --</option>
+      </select>
+    </div>
+
+    <!-- Hàng 3: Top 5 + Tiền Ứng -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
       <div class="records-wrap" style="padding:18px 20px">
         <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:14px">🏆 Top 5 Chi Phí Lớn Nhất</div>
         <div id="db-top5"></div>
       </div>
       <div class="records-wrap" style="padding:18px 20px">
-        <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:14px">📊 Chi Phí Theo Công Trình</div>
-        <div id="db-by-ct"></div>
+        <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:14px">💰 Tổng Tiền Ứng Theo Công Trình</div>
+        <div id="db-ung-ct"></div>
       </div>
+    </div>
+
+    <!-- Hàng 3b: Thiết Bị -->
+    <div class="records-wrap" style="padding:18px 20px;margin-bottom:22px">
+      <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:14px">🔧 Thiết Bị Theo Công Trình</div>
+      <div id="db-tb-ct"></div>
     </div>
 
     <!-- Hàng 4: Bảng Lãi/Lỗ tổng hợp -->

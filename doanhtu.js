@@ -4,29 +4,58 @@
 // Khai bao bien (dung chung voi lib.js/gsLoadAll)
 let hopDongData = load('hopdong_v1', {});
 let thuRecords  = load('thu_v1', []);
+let selectedCT  = '';  // Lọc công trình trên dashboard ('' = tất cả)
 
 // [MODULE: DASHBOARD] — KPI · Bar chart · Pie · Top5 · By CT
 // Tìm nhanh: Ctrl+F → "MODULE: DASHBOARD"
 // ══════════════════════════════════════════════════════════════
 
 function renderDashboard() {
-  const yr   = activeYear;
-  const data = invoices.filter(i => inActiveYear(i.ngay));
-  if (!data.length) {
-    ['db-kpi-row','db-bar-chart','db-pie-chart','db-top5','db-by-ct'].forEach(id => {
+  const yr = activeYear;
+  _dbPopulateCTFilter();
+
+  // Tầng 1: tổng quan năm (không filter CT)
+  const dataYear = invoices.filter(i => inActiveYear(i.ngay));
+
+  // Tầng 2: chi tiết theo CT (có filter)
+  const dataDetail = invoices.filter(i =>
+    inActiveYear(i.ngay) &&
+    (!selectedCT || i.congtrinh === selectedCT)
+  );
+
+  if (!dataYear.length) {
+    ['db-kpi-row','db-bar-chart','db-pie-chart','db-top5','db-ung-ct','db-tb-ct'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.innerHTML = '<div class="db-empty">Chưa có dữ liệu cho năm ' + yr + '</div>';
     });
     return;
   }
 
-  _dbKPI(data, yr);
-  _dbBarChart(data);
-  _dbPieChart(data);
-  _dbTop5(data);
-  _dbByCT(data);
+  // Tổng quan năm — không bị filter CT
+  _dbKPI(dataYear, yr);
+  _dbBarChart(dataYear);
+  _dbPieChart(dataYear);
+
+  // Chi tiết theo CT — bị filter khi chọn CT
+  _dbTop5(dataDetail);
+  _dbUngByCT();
+  _dbTBByCT();
+
   renderCtPage();   // Chi tiết từng CT (gộp từ tab cũ)
   renderLaiLo();    // Bảng lãi/lỗ
+}
+
+// ── Populate CT filter dropdown ────────────────────────────────
+function _dbPopulateCTFilter() {
+  const sel = document.getElementById('db-filter-ct');
+  if (!sel) return;
+  const cts = [...new Set([
+    ...cats.congTrinh,
+    ...invoices.filter(i => inActiveYear(i.ngay)).map(i => i.congtrinh)
+  ].filter(Boolean))].sort((a,b) => a.localeCompare(b,'vi'));
+  sel.innerHTML = '<option value="">-- Tất cả công trình --</option>' +
+    cts.map(v => `<option value="${x(v)}">${x(v)}</option>`).join('');
+  sel.value = selectedCT;
 }
 
 // ── KPI Cards ─────────────────────────────────────────────────
@@ -54,7 +83,7 @@ function _dbKPI(data, yr) {
   ).join('');
 }
 
-// ── Bar Chart theo tháng (SVG) ────────────────────────────────
+// ── Bar Chart theo tháng (SVG) — luôn hiện đủ T1→T12 ─────────
 function _dbBarChart(data) {
   // Tổng hợp theo tháng
   const byMonth = {};
@@ -63,33 +92,49 @@ function _dbBarChart(data) {
     if (!m) return;
     byMonth[m] = (byMonth[m] || 0) + (i.thanhtien || i.tien || 0);
   });
-  const months = Object.keys(byMonth).sort();
-  if (!months.length) return;
 
-  const vals    = months.map(m => byMonth[m]);
-  const maxVal  = Math.max(...vals);
-  const H       = 160;  // chiều cao cột max
-  const colW    = Math.max(28, Math.min(60, Math.floor(620 / months.length) - 6));
-  const gap     = 5;
-  const svgW    = months.length * (colW + gap);
+  // Luôn hiện đủ 12 tháng T1→T12
+  const yr = activeYear || new Date().getFullYear();
+  const months12 = Array.from({length: 12}, (_, k) =>
+    `${yr}-${String(k + 1).padStart(2, '0')}`
+  );
 
-  const bars = months.map((m, i) => {
-    const h    = maxVal ? Math.round((vals[i] / maxVal) * H) : 2;
-    const x    = i * (colW + gap);
-    const y    = H - h;
-    const lbl  = m.slice(5);   // "01"→"T1"
-    const amt  = vals[i] >= 1e9 ? (vals[i]/1e9).toFixed(1)+'tỷ'
-               : vals[i] >= 1e6 ? Math.round(vals[i]/1e6)+'tr' : fmtS(vals[i]);
+  // Khi "Tất cả năm" (activeYear=0): gộp theo số tháng qua tất cả năm
+  let vals;
+  if (activeYear === 0) {
+    const byNum = {};
+    Object.entries(byMonth).forEach(([m, v]) => {
+      const num = m.slice(5);
+      byNum[num] = (byNum[num] || 0) + v;
+    });
+    vals = months12.map((_, i) => byNum[String(i + 1).padStart(2, '0')] || 0);
+  } else {
+    vals = months12.map(m => byMonth[m] || 0);
+  }
+
+  const maxVal = Math.max(...vals, 1);
+  const H      = 160;
+  const colW   = 40;
+  const gap    = 5;
+  const svgW   = 12 * (colW + gap);
+
+  const bars = months12.map((m, i) => {
+    const v   = vals[i];
+    const h   = Math.round((v / maxVal) * H);
+    const cx  = i * (colW + gap);
+    const y   = H - h;
+    const amt = v >= 1e9 ? (v/1e9).toFixed(1)+'tỷ'
+              : v >= 1e6 ? Math.round(v/1e6)+'tr' : (v ? fmtS(v) : '');
     return `
       <g>
-        <rect x="${x}" y="${y}" width="${colW}" height="${h}"
-              rx="3" fill="var(--gold)" opacity=".85">
-          <title>${m}: ${fmtM(vals[i])}</title>
+        <rect x="${cx}" y="${y}" width="${colW}" height="${Math.max(h, 2)}"
+              rx="3" fill="${v ? 'var(--gold)' : 'var(--line)'}" opacity="${v ? '.85' : '.35'}">
+          <title>T${i+1}: ${fmtM(v)}</title>
         </rect>
-        <text x="${x + colW/2}" y="${y - 4}" text-anchor="middle"
+        <text x="${cx + colW/2}" y="${y - 4}" text-anchor="middle"
               font-size="9" fill="var(--ink2)">${h > 14 ? amt : ''}</text>
-        <text x="${x + colW/2}" y="${H + 14}" text-anchor="middle"
-              font-size="9" fill="var(--ink3)">T${parseInt(lbl)}</text>
+        <text x="${cx + colW/2}" y="${H + 14}" text-anchor="middle"
+              font-size="9" fill="var(--ink3)">T${i+1}</text>
       </g>`;
   }).join('');
 
@@ -199,6 +244,154 @@ function _dbByCT(data) {
       <div class="db-rank-amt">${fmtM(amt)}</div>
     </div>`;
   }).join('');
+}
+
+// ── Tổng Tiền Ứng theo Công Trình ─────────────────────────────
+function _dbUngByCT() {
+  const wrap = document.getElementById('db-ung-ct');
+  if (!wrap) return;
+
+  const filtered = ungRecords.filter(r =>
+    inActiveYear(r.ngay) &&
+    (!selectedCT || r.congtrinh === selectedCT)
+  );
+
+  if (!filtered.length) {
+    wrap.innerHTML = '<div class="db-empty">Chưa có tiền ứng</div>';
+    return;
+  }
+
+  if (!selectedCT) {
+    // Chế độ 1: tổng hợp theo CT
+    const byCT = {};
+    filtered.forEach(r => {
+      const k = r.congtrinh || '(Không rõ)';
+      byCT[k] = (byCT[k] || 0) + (r.tien || 0);
+    });
+    const sorted = Object.entries(byCT).sort((a,b) => b[1]-a[1]);
+    const max = sorted[0][1] || 1;
+    wrap.innerHTML = sorted.map(([ct, amt], i) => {
+      const pct = Math.round(amt / max * 100);
+      return `<div class="db-rank-row">
+        <div class="db-rank-num ${i===0?'top1':''}">${i+1}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"
+               title="${x(ct)}">${x(ct)}</div>
+          <div class="db-rank-bar-bg" style="margin-top:4px">
+            <div class="db-rank-bar-fill" style="width:${pct}%;background:#4a90d9"></div>
+          </div>
+        </div>
+        <div class="db-rank-amt">${fmtM(amt)}</div>
+      </div>`;
+    }).join('');
+  } else {
+    // Chế độ 2: chi tiết từng lần ứng của CT đã chọn
+    const rows = [...filtered]
+      .sort((a,b) => b.ngay.localeCompare(a.ngay))
+      .map(r => `<tr style="border-bottom:1px solid var(--line)">
+        <td style="padding:7px 8px;white-space:nowrap;color:var(--ink3);font-size:12px">${r.ngay}</td>
+        <td style="padding:7px 8px;font-weight:600">${x(r.tp)||'—'}</td>
+        <td style="padding:7px 8px;color:var(--ink2);font-size:12px">${x(r.nd)||'—'}</td>
+        <td style="padding:7px 8px;text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:700;color:#4a90d9;white-space:nowrap">${fmtM(r.tien||0)}</td>
+      </tr>`).join('');
+    const total = filtered.reduce((s,r) => s + (r.tien||0), 0);
+    wrap.innerHTML = `<div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead>
+          <tr style="font-size:11px;color:var(--ink3);border-bottom:2px solid var(--line)">
+            <th style="text-align:left;padding:6px 8px;font-weight:600">Ngày</th>
+            <th style="text-align:left;padding:6px 8px;font-weight:600">Thầu Phụ / NCC</th>
+            <th style="text-align:left;padding:6px 8px;font-weight:600">Nội Dung</th>
+            <th style="text-align:right;padding:6px 8px;font-weight:600">Số Tiền</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+        <tfoot>
+          <tr style="font-weight:700;border-top:2px solid var(--line)">
+            <td colspan="3" style="padding:7px 8px;color:var(--ink3)">Tổng cộng (${filtered.length} lần)</td>
+            <td style="padding:7px 8px;text-align:right;font-family:'IBM Plex Mono',monospace;color:#4a90d9">${fmtM(total)}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>`;
+  }
+}
+
+// ── Thiết Bị theo Công Trình ───────────────────────────────────
+function _dbTBByCT() {
+  const wrap = document.getElementById('db-tb-ct');
+  if (!wrap) return;
+
+  const allTB = tbData.filter(t => t.ct !== TB_KHO_TONG);
+
+  if (!allTB.length) {
+    wrap.innerHTML = '<div class="db-empty">Chưa có thiết bị</div>';
+    return;
+  }
+
+  if (!selectedCT) {
+    // Chế độ 1: thống kê theo CT
+    const byCT = {};
+    allTB.forEach(t => {
+      const ct = t.ct || '(Không rõ)';
+      if (!byCT[ct]) byCT[ct] = { total: 0, dangHD: 0, hdLau: 0, canSC: 0 };
+      const sl = t.soluong || 0;
+      byCT[ct].total  += sl;
+      if (t.tinhtrang === 'Đang hoạt động') byCT[ct].dangHD += sl;
+      else if (t.tinhtrang === 'Hoạt động lâu') byCT[ct].hdLau += sl;
+      else if (t.tinhtrang === 'Cần sửa chữa') byCT[ct].canSC += sl;
+    });
+
+    const sorted = Object.entries(byCT).sort((a,b) => a[0].localeCompare(b[0],'vi'));
+    wrap.innerHTML = sorted.map(([ct, s]) =>
+      `<div style="padding:10px 0;border-bottom:1px solid var(--line)">
+        <div style="font-weight:700;color:var(--ink);margin-bottom:6px">${x(ct)}</div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px">
+          <span style="color:var(--ink3)">Tổng: <b style="color:var(--ink)">${s.total}</b></span>
+          <span style="color:var(--green)">Đang hoạt động: <b>${s.dangHD}</b></span>
+          <span style="color:var(--gold)">Hoạt động lâu: <b>${s.hdLau}</b></span>
+          <span style="color:var(--red)">Cần sửa chữa: <b>${s.canSC}</b></span>
+        </div>
+      </div>`
+    ).join('');
+  } else {
+    // Chế độ 2: chi tiết thiết bị của CT đã chọn
+    const filtered = allTB
+      .filter(t => t.ct === selectedCT)
+      .sort((a,b) => (a.ten||'').localeCompare(b.ten,'vi'));
+
+    if (!filtered.length) {
+      wrap.innerHTML = '<div class="db-empty">Chưa có thiết bị cho ' + x(selectedCT) + '</div>';
+      return;
+    }
+
+    const rows = filtered.map(t => {
+      const ttColor = t.tinhtrang === 'Đang hoạt động' ? 'var(--green)'
+                    : t.tinhtrang === 'Hoạt động lâu'  ? 'var(--gold)'
+                    : t.tinhtrang === 'Cần sửa chữa'   ? 'var(--red)'
+                    : 'var(--ink3)';
+      return `<tr style="border-bottom:1px solid var(--line)">
+        <td style="padding:7px 8px;font-weight:600">${x(t.ten)}</td>
+        <td style="padding:7px 8px;text-align:center;font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--gold)">${t.soluong||0}</td>
+        <td style="padding:7px 8px;color:${ttColor}">${x(t.tinhtrang)||'—'}</td>
+        <td style="padding:7px 8px;color:var(--ink3);font-size:12px">${x(t.ct)||'—'}</td>
+      </tr>`;
+    }).join('');
+
+    wrap.innerHTML = `<div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead>
+          <tr style="font-size:11px;color:var(--ink3);border-bottom:2px solid var(--line)">
+            <th style="text-align:left;padding:6px 8px;font-weight:600">Tên Thiết Bị</th>
+            <th style="text-align:center;padding:6px 8px;font-weight:600">SL</th>
+            <th style="text-align:left;padding:6px 8px;font-weight:600">Tình Trạng</th>
+            <th style="text-align:left;padding:6px 8px;font-weight:600">Công Trình</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  }
 }
 
 // ══════════════════════════════════════════════════════════════
