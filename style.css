@@ -902,3 +902,95 @@ body { overscroll-behavior-y: none; }
   padding-top: 5px;
   margin-top: 2px;
 }
+
+
+
+/* =========================================================
+   MOBILE UI IMPROVEMENTS (added)
+   - Move Import / Export / Delete / Cloud to bottom toolbar
+   - Fix Doanh Thu form overflow
+   - Improve dashboard mobile layout
+   ========================================================= */
+
+@media (max-width:768px){
+
+  /* Bottom toolbar for rarely used actions */
+  .topbar-controls{
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #1a1814;
+    border-top: 1px solid rgba(255,255,255,0.15);
+    display: flex;
+    justify-content: space-around;
+    padding: 8px 6px;
+    z-index: 999;
+  }
+
+  .tb-btn{
+    flex: 1;
+    justify-content: center;
+    font-size: 13px;
+  }
+
+  /* Prevent bottom bar covering content */
+  .content{
+    padding-bottom: 70px !important;
+  }
+
+  /* Fix Doanh Thu form layout */
+  .dt-form-grid{
+    grid-template-columns: 1fr !important;
+  }
+
+  .dt-field input,
+  .dt-field select{
+    width: 100%;
+  }
+
+  /* Fix dashboard card stacking */
+  #page-dashboard > div{
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Rank list layout */
+  .db-rank-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    overflow:hidden;
+  }
+
+  .db-rank-row span,
+  .db-rank-row div{
+    min-width:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+
+  .db-rank-bar-bg{
+    flex:1;
+  }
+
+  .db-rank-amt{
+    flex-shrink:0;
+    white-space:nowrap;
+  }
+
+}
+
+/* Small phones */
+@media (max-width:480px){
+
+  .db-rank-row{
+    font-size:11px;
+    gap:6px;
+  }
+
+  .db-kpi-val{
+    font-size:16px;
+  }
+
+}
